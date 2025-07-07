@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS positions
     source_id INTEGER NOT NULL UNIQUE,
     current_position INTEGER NOT NULL,
     FOREIGN KEY(source_id) REFERENCES sources(id)
-    )
+    );
 
 CREATE TABLE IF NOT EXISTS movements
     (
@@ -49,4 +49,4 @@ CREATE TABLE IF NOT EXISTS movements
     amount INTEGER NOT NULL,
     FOREIGN KEY(source_id) REFERENCES sources(id),
     FOREIGN KEY(dest_id) REFERENCES destinations(id)
-    )
+    );
