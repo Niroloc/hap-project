@@ -1,13 +1,13 @@
 CREATE TABLE IF NOT EXISTS sources
     (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT
+    name TEXT UNIQUE
     );
 
 CREATE TABLE IF NOT EXISTS destinations
     (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT
+    name TEXT UNIQUE
     );
 
 CREATE TABLE IF NOT EXISTS users
