@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users
     tg_id INTEGER PRIMARY KEY,
     roles TEXT CHECK(roles IN ('admin', 'user')) NOT NULL,
     source_id INTEGER DEFAULT NULL,
-    dest_id INTEGET DEFAULT NULL
+    dest_id INTEGER DEFAULT NULL
     );
 
 CREATE TABLE IF NOT EXISTS loans
