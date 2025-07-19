@@ -1,8 +1,10 @@
-from utils.db import Db, ROLE
+import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.types import Message
+
+from utils.db import Db, ROLE
 
 class Tg:
     def __init__(self, token: str, db: Db):
@@ -22,7 +24,8 @@ class Tg:
                                 "Здесь можно оформлять займы из разных источников " \
                                 "и получать оперативную отчётность по текущему состоянию " \
                                 "проекта за разные периоды времени, а также получать напоминания " \
-                                "о необходимости произведения выплат")
+                                "о необходимости произведения выплат" \
+                                "Ваша текущая роль: " + str(role))
         
     async def run(self):
         await self.dp.start_polling(self.bot)
