@@ -4,4 +4,5 @@ services:
     build:
       context: ./
     volumes:
-      - ./db_data/:/app/data/
+      - ./db_data/:/app/src/data/
+      - ./migrations/:/app/src/migrations/
