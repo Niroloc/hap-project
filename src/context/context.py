@@ -2,6 +2,9 @@ import json
 import logging
 import os
 
+from aiogram.types import CallbackQuery
+
+from src.bot.callbacks.callback_factories import CallbackFactory
 from src.utils.db import Db
 
 
@@ -16,13 +19,16 @@ class Context:
         self.DB_FILE: str = '/data/db.db'
         self.db = Db(self.DB_FILE)
         self.CONFIG_FILE = '/config/config.json'
+        self.MIGRATIONS_FOLDER: str = '/migrations'
         if os.getenv('ENVIRNMENT', 'dev') == 'dev':
             self.DB_FILE = '$HOME/PycharmProjects/haperychProject/db_data/db.db'
             self.CONFIG_FILE = '$HOME/PycharmProjects/haperychProject/config/config.json'
-        self.button_to_factory: dict[str, str] = {}
+            self.MIGRATIONS_FOLDER = '$HOME/PycharmProjects/haperychProject/migrations/'
         data = dict()
         if os.path.isfile(self.CONFIG_FILE):
             with open(self.CONFIG_FILE) as f:
                 data = json.load(f)
-        self.button_to_factory = data.get("buttons_to_factory", dict())
+        self.button_to_factory: dict[str ,str] = data.get("buttons_to_factory", dict())
         self.DEFAULT_MESSAGE_FACTORY_ALIAS = data.get("default_message_factory_alias", "payback")
+
+        self.input_mode_callback_query: CallbackQuery | None = None

@@ -3,6 +3,8 @@ import sqlite3
 from typing import Union
 from enum import Enum
 
+from src.context.context import Context
+
 
 class ROLE(Enum):
     NOT_USER = 0
@@ -11,23 +13,16 @@ class ROLE(Enum):
 
 
 class Db:
-    def __init__(self, filename):
-        tables_exist = os.path.isfile(filename)
+    def __init__(self, context: Context):
+        filename = context.DB_FILE
         self.conn = sqlite3.connect(filename)
         self.cur = self.conn.cursor()
         self.mp = {'admin': 2, 'user': 1}
-        if not tables_exist:
-            with open(forward_migration, "rt", encoding='utf-8') as f:
-                queries = f.read().split(';')
-            for query in queries:
-                self.cur.execute(query)
-                self.conn.commit()
-        self.cur.execute(f'SELECT roles FROM users WHERE tg_id={author_id}')
-        roles = self.cur.fetchall()
-        if len(roles) == 0:
-            self.add_user(author_id, 'admin')
-        elif roles[0][0] != 'admin':
-            self.cur.execute(f"UPDATE users SET roles='admin' WHERE tg_id = {author_id}")
+        with open(os.path.join(context.MIGRATIONS_FOLDER, "forward.sql"), "rt", encoding='utf-8') as f:
+            queries = f.read().split(';')
+        for query in queries:
+            self.cur.execute(query)
+        self.conn.commit()
 
     def user_role(self, tg_id: Union[str, int]) -> ROLE:
         query = f'SELECT roles FROM users WHERE tg_id = {tg_id}'

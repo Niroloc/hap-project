@@ -7,14 +7,14 @@ from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
-from src.bot.bot.factory_helper import FactoryHelper
+from src.bot.factory_helper import CallbackHelper
 from src.context.context import Context
 
 
-class DaDogsBot:
+class HaperychBot:
     def __init__(self, context: Context):
         self.context = context
-        self.helper = FactoryHelper(context)
+        self.helper = CallbackHelper(context)
         self.dp = Dispatcher()
         self.bot = Bot(token=context.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
@@ -29,7 +29,7 @@ class DaDogsBot:
         async def message_handler(message: Message) -> None:
             if not self.check_rights(message):
                 return
-            f = self.helper.get_message_factory(message.text).callback
+            f = self.helper.get_message_callback(message.text)
             if f is not None:
                 await f(message)
 

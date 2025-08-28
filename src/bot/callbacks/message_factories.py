@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, Message
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, Message, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.context.context import Context
@@ -19,9 +19,21 @@ class MessageFactory(ABC):
     async def callback(self, message: Message) -> None:
         pass
 
+class InputMessageFactory(MessageFactory):
+    message: str = 'ANY'
+    async def callback(self, message: Message) -> None:
+        await message.answer(text="Значение принято!", reply_markup=self.get_kb())
+        builder = InlineKeyboardBuilder()
+        builder.row(InlineKeyboardButton(text="Отмена", callback_data=self.context.input_mode_callback_query))
+        self.context.input_mode_callback_query.data += "+" + message.text
+        builder.row(InlineKeyboardButton(text="Продолжить", callback_data=self.context.input_mode_callback_query))
+        await message.answer(text="Продолжить?", reply_markup=builder.as_markup())
+        self.context.input_mode_callback_query = None
+
 
 class PaybackMessageFactory(MessageFactory):
     message: str = 'payback'
     async def callback(self, message: Message) -> None:
         builder = InlineKeyboardBuilder()
         self.context.db.get_actual_loans()
+

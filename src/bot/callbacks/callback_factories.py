@@ -41,6 +41,7 @@ class PaybackCallbackFactory(CallbackFactory):
             lambda x: datetime.strptime(x, "%Y-%m-%d").date()
         ]
         self.args_count: int = 0
+        self.input_mode: bool = False
 
     def _parse_args(self, callback_data: str) -> None:
         self.args_count = 0

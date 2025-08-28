@@ -1,9 +1,15 @@
+from typing import Callable, Any, Coroutine
+
+from aiogram.types import Message
+
+from src.bot.callbacks.callback_factories import CallbackFactory
+from src.bot.callbacks.message_factories import MessageFactory
 from src.context.context import Context
 from src.bot.callbacks.callback_factories import *
 from src.bot.callbacks.message_factories import *
 
 
-class FactoryHelper:
+class CallbackHelper:
     def __init__(self, context: Context):
         self.context = context
         self.prefix_to_callback_factory: dict[str, CallbackFactory] = {
@@ -17,14 +23,16 @@ class FactoryHelper:
             PaybackMessageFactory
         )
 
-    def get_message_factory(self, text: str) -> MessageFactory:
+    def get_message_callback(self, text: str) -> Callable[[Message], Coroutine[Any, Any, None]]:
         if text not in self.context.button_to_factory:
-            return self.default_message_factory
+            if self.context.input_mode_callback_query is not None:
+                return InputMessageFactory(self.context).callback
+            return self.default_message_factory.callback
         alias = self.context.button_to_factory[text]
         logging.warning(f"Cannot find factory for alias '{alias}'")
         if alias not in self.alias_to_factory:
-            return self.default_message_factory
-        return self.alias_to_factory[self.context.button_to_factory[text]]
+            return self.default_message_factory.callback
+        return self.alias_to_factory[self.context.button_to_factory[text]].callback
 
     def get_callback_factory(self, callback_data: str) -> CallbackFactory | None:
         prefix = callback_data.split("_")[0]
