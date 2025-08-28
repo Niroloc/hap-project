@@ -11,7 +11,7 @@ class ROLE(Enum):
 
 
 class Db:
-    def __init__(self, filename: str, forward_migration: str, author_id: int):
+    def __init__(self, filename):
         tables_exist = os.path.isfile(filename)
         self.conn = sqlite3.connect(filename)
         self.cur = self.conn.cursor()
@@ -36,19 +36,19 @@ class Db:
         if len(res) == 0:
             return ROLE(0)
         return ROLE(self.mp.get(res[0][0]))
-    
+
     def source_exists(self, source_id: int) -> bool:
         if not isinstance(source_id):
             return False
         self.cur.execute(f"SELECT 1 fROM sources WHERE id = {source_id}")
         return len(self.cur.fetchall()) >= 1
-    
+
     def dest_exists(self, dest_id: int) -> bool:
         if not isinstance(dest_id):
             return False
         self.cur.execute(f"SELECT 1 fROM destinations WHERE id = {dest_id}")
         return len(self.cur.fetchall()) >= 1
-    
+
     def add_user(self, tg_id: int, role: str = 'user', source_id: int = None, dest_id: int = None) -> None:
         if role not in self.mp:
             role = 'user'

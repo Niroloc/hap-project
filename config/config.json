@@ -1,0 +1,9 @@
+{
+  "buttons_to_factory": {
+    "Новый займ": "loan",
+    "Возврат долга": "payback",
+    "График платежей": "schedule",
+    "Получить аналитику": "analytics"
+  },
+  "default_message_factory_alias": "payback"
+}
