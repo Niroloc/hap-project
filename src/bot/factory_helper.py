@@ -1,6 +1,3 @@
-import logging
-from typing import Type
-
 from src.context.context import Context
 from src.bot.callbacks.callback_factories import *
 from src.bot.callbacks.message_factories import *

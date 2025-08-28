@@ -4,8 +4,6 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.context.context import Context
-from src.bot.callbacks.callback_factories import *
-
 
 class MessageFactory(ABC):
     message: str = 'unknown'
