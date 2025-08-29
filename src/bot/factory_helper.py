@@ -25,18 +25,27 @@ class CallbackHelper:
 
     def get_message_callback(self, text: str) -> Callable[[Message], Coroutine[Any, Any, None]]:
         if text not in self.context.BUTTON_TO_FACTORY:
-            if self.context.input_mode_callback_query is not None:
+            if self.context.input_mode_callback_data is not None:
                 return InputMessageFactory(self.context).callback
+            elif self.context.input_mode_message_alias is not None:
+                return self.alias_to_factory[self.context.input_mode_message_alias].callback
             return self.default_message_factory.callback
         alias = self.context.BUTTON_TO_FACTORY[text]
-        logging.warning(f"Cannot find factory for alias '{alias}'")
         if alias not in self.alias_to_factory:
+            logging.warning(f"Cannot find factory for alias '{alias}'")
             return self.default_message_factory.callback
+
+        if self.context.input_mode_message_alias is not None:
+            self.alias_to_factory[self.context.input_mode_message_alias].step = 0
+            self.context.input_mode_message_alias = None
+        if self.context.input_mode_callback_data is not None:
+            self.context.input_mode_callback_data = None
+
         return self.alias_to_factory[self.context.BUTTON_TO_FACTORY[text]].callback
 
     def get_callback_factory(self, callback_data: str) -> CallbackFactory | None:
         prefix = callback_data.split("_")[0]
         if prefix not in self.prefix_to_callback_factory:
-            logging.error(f"Alias {callback_data} is not valid")
+            logging.error(f"Prefix {callback_data} is not valid")
             return None
         return self.prefix_to_callback_factory[prefix]

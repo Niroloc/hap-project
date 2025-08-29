@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS legend_sources
     (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE
-    )
+    );
 
 CREATE TABLE IF NOT EXISTS loans
     (

@@ -7,5 +7,5 @@
     "График платежей": "schedule",
     "Получить аналитику": "analytics"
   },
-  "default_message_factory_alias": "loan"
+  "default_message_factory_alias": "source"
 }

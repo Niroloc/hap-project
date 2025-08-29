@@ -26,11 +26,11 @@ class InputMessageFactory(MessageFactory):
     async def callback(self, message: Message) -> None:
         await message.answer(text="Значение принято!", reply_markup=self.get_kb())
         builder = InlineKeyboardBuilder()
-        builder.row(InlineKeyboardButton(text="Отмена", callback_data=self.context.input_mode_callback_query))
-        self.context.input_mode_callback_query.data += "+" + message.text
-        builder.row(InlineKeyboardButton(text="Продолжить", callback_data=self.context.input_mode_callback_query))
+        builder.row(InlineKeyboardButton(text="Отмена", callback_data=self.context.input_mode_callback_data))
+        self.context.input_mode_callback_data += "+" + message.text
+        builder.row(InlineKeyboardButton(text="Продолжить", callback_data=self.context.input_mode_callback_data))
         await message.answer(text="Продолжить?", reply_markup=builder.as_markup())
-        self.context.input_mode_callback_query = None
+        self.context.input_mode_callback_data = None
 
 
 class SourceMessageFactory(MessageFactory):

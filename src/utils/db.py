@@ -4,19 +4,18 @@ import sqlite3
 from datetime import date
 from traceback import format_exc
 
-from src.context.context import Context
-
 
 class Db:
-    def __init__(self, context: Context):
-        filename = context.DB_FILE
+    def __init__(self, filename: str, migration_folder: str):
+        logging.info(f"trying to connect to {filename} with migrations from {migration_folder}")
         self.conn = sqlite3.connect(filename)
         self.cur = self.conn.cursor()
-        with open(os.path.join(context.MIGRATIONS_FOLDER, "forward.sql"), "rt", encoding='utf-8') as f:
+        with open(os.path.join(migration_folder, "forward.sql"), "rt", encoding='utf-8') as f:
             queries = f.read().split(';')
         for query in queries:
             self.cur.execute(query)
         self.conn.commit()
+        logging.info("Successfully connected")
 
     def create_loan(
             self,
