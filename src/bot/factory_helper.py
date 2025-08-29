@@ -24,15 +24,15 @@ class CallbackHelper:
         )
 
     def get_message_callback(self, text: str) -> Callable[[Message], Coroutine[Any, Any, None]]:
-        if text not in self.context.button_to_factory:
+        if text not in self.context.BUTTON_TO_FACTORY:
             if self.context.input_mode_callback_query is not None:
                 return InputMessageFactory(self.context).callback
             return self.default_message_factory.callback
-        alias = self.context.button_to_factory[text]
+        alias = self.context.BUTTON_TO_FACTORY[text]
         logging.warning(f"Cannot find factory for alias '{alias}'")
         if alias not in self.alias_to_factory:
             return self.default_message_factory.callback
-        return self.alias_to_factory[self.context.button_to_factory[text]].callback
+        return self.alias_to_factory[self.context.BUTTON_TO_FACTORY[text]].callback
 
     def get_callback_factory(self, callback_data: str) -> CallbackFactory | None:
         prefix = callback_data.split("_")[0]

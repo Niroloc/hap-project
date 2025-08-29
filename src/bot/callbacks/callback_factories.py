@@ -15,7 +15,7 @@ class CallbackFactory(ABC):
         self.context = context
 
     def get_kb(self) -> ReplyKeyboardMarkup:
-        buttons = [KeyboardButton(text=k) for k in self.context.button_to_factory]
+        buttons = [KeyboardButton(text=k) for k in self.context.BUTTON_TO_FACTORY]
         buttons = [buttons[i: i + 2] for i in range(0, len(buttons), 2)]
         return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True, one_time_keyboard=False)
 

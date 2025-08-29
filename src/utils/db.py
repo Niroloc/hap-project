@@ -1,15 +1,10 @@
+import logging
 import os
 import sqlite3
-from typing import Union
-from enum import Enum
+from datetime import date
+from traceback import format_exc
 
 from src.context.context import Context
-
-
-class ROLE(Enum):
-    NOT_USER = 0
-    USER = 1
-    ADMIN = 2
 
 
 class Db:
@@ -17,51 +12,124 @@ class Db:
         filename = context.DB_FILE
         self.conn = sqlite3.connect(filename)
         self.cur = self.conn.cursor()
-        self.mp = {'admin': 2, 'user': 1}
         with open(os.path.join(context.MIGRATIONS_FOLDER, "forward.sql"), "rt", encoding='utf-8') as f:
             queries = f.read().split(';')
         for query in queries:
             self.cur.execute(query)
         self.conn.commit()
 
-    def user_role(self, tg_id: Union[str, int]) -> ROLE:
-        query = f'SELECT roles FROM users WHERE tg_id = {tg_id}'
-        self.cur.execute(query)
-        res = self.cur.fetchall()
-        if len(res) == 0:
-            return ROLE(0)
-        return ROLE(self.mp.get(res[0][0]))
-
-    def source_exists(self, source_id: int) -> bool:
-        if not isinstance(source_id):
+    def create_loan(
+            self,
+            source_id: int,
+            loan_date: date,
+            amount: int,
+            reward: int,
+            expected_settle_date: date,
+            legend_source_id: int,
+            comment: str = None,
+            previous_loan_id: int = None) -> bool:
+        query = f'''
+            insert into loans
+            (source_id, 
+            loan_date, 
+            amount, 
+            expected_settle_date, 
+            reward, 
+            legend_source_id
+            {'' if comment is None else ', comment'})
+            values
+            (
+            {source_id},
+            {loan_date.strftime("%Y-%m-%d")},
+            {amount},
+            {reward},
+            {expected_settle_date.strftime("%Y-%m-%d")},
+            {legend_source_id}
+            {'' if comment is None else ", " + comment}
+            )
+            returning id
+        '''
+        try:
+            self.cur.execute(query)
+            res = self.cur.fetchone()[0]
+        except:
+            logging.error("An error occurred while creating new loan")
+            logging.error(format_exc())
             return False
-        self.cur.execute(f"SELECT 1 fROM sources WHERE id = {source_id}")
-        return len(self.cur.fetchall()) >= 1
-
-    def dest_exists(self, dest_id: int) -> bool:
-        if not isinstance(dest_id):
-            return False
-        self.cur.execute(f"SELECT 1 fROM destinations WHERE id = {dest_id}")
-        return len(self.cur.fetchall()) >= 1
-
-    def add_user(self, tg_id: int, role: str = 'user', source_id: int = None, dest_id: int = None) -> None:
-        if role not in self.mp:
-            role = 'user'
-        self.cur.execute(f'''
-                            INSERT INTO users(tg_id, roles)
-                            VALUES ({tg_id}, '{role}')
-                            ON CONFLICT(tg_id) DO UPDATE SET
-                            roles = '{role}'
-                            WHERE tg_id = {tg_id}
-                            ''')
-        if self.source_exists(source_id):
-            self.cur.execute(f'''
-                                UPDATE users
-                                SET source_id = {source_id}
-                                ''')
-        if self.dest_exists(dest_id):
-            self.cur.execute(f'''
-                                UPDATE users
-                                SET dest_id = {dest_id}
-                                ''')
+        if previous_loan_id is not None:
+            query = f'''
+                update loans
+                set next_loan_id = {res}
+                where id = {previous_loan_id}
+            '''
         self.conn.commit()
+        return True
+
+    def add_source(self, name: str) -> bool:
+        query = f'''
+            insert into sources
+            (name)
+            values
+            ('{name}')
+        '''
+        try:
+            self.cur.execute(query)
+        except:
+            logging.error("An error occurred while adding source")
+            logging.error(format_exc())
+            return False
+        return True
+
+    def add_legend_source(self, name: str):
+        query = f'''
+                insert into legend_sources
+                (name)
+                values
+                ('{name}')
+                '''
+        try:
+            self.cur.execute(query)
+        except:
+            logging.error("An error occurred while adding source")
+            logging.error(format_exc())
+            return False
+        return True
+
+    def get_sources(self) -> list[tuple[int, str]]:
+        query = f'''
+            select id, name
+            from sources
+            order by name
+        '''
+        self.cur.execute(query)
+        return self.cur.fetchall()
+
+    def get_legend_sources(self) -> list[tuple[int, str]]:
+        query = f'''
+            select id, name
+            from legend_sources
+            order by name
+        '''
+        self.cur.execute(query)
+        return self.cur.fetchall()
+
+    def get_non_settled_loans(self) -> list[tuple[int, int, str, date, date, int, int, int, str, str]]:
+        query = f'''
+            select 
+                l.id, 
+                l.source_id, 
+                s.name as source_name, 
+                l.loan_date, 
+                l.expected_settle_date, 
+                l.amount, 
+                l.amount + l.reward as total,
+                l.legend_source_id,
+                sl.name as legend_source_name,
+                comment
+            from 
+                loans l left join sources s on l.source_id = s.id left join legend_sources sl on sl.id = l.legend_source_id
+            where
+                settle_date is null
+        '''
+        self.cur.execute(query)
+        return self.cur.fetchall()

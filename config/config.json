@@ -1,9 +1,11 @@
 {
   "buttons_to_factory": {
+    "Добавить легенду": "legend",
+    "Добавить источник": "source",
     "Новый займ": "loan",
     "Возврат долга": "payback",
     "График платежей": "schedule",
     "Получить аналитику": "analytics"
   },
-  "default_message_factory_alias": "payback"
+  "default_message_factory_alias": "loan"
 }

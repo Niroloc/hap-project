@@ -28,7 +28,8 @@ class Context:
         if os.path.isfile(self.CONFIG_FILE):
             with open(self.CONFIG_FILE) as f:
                 data = json.load(f)
-        self.button_to_factory: dict[str ,str] = data.get("buttons_to_factory", dict())
+        self.BUTTON_TO_FACTORY: dict[str ,str] = data.get("buttons_to_factory", dict())
         self.DEFAULT_MESSAGE_FACTORY_ALIAS = data.get("default_message_factory_alias", "payback")
 
         self.input_mode_callback_query: CallbackQuery | None = None
+        self.input_mode_message_alias: str | None = None
