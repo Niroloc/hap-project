@@ -112,7 +112,7 @@ class Db:
         self.cur.execute(query)
         return self.cur.fetchall()
 
-    def get_non_settled_loans(self) -> list[tuple[int, int, str, date, date, int, int, int, str, str]]:
+    def get_unsettled_loans(self) -> list[tuple[int, int, str, date, date, int, int, int, str, str]]:
         query = f'''
             select 
                 l.id, 
@@ -123,12 +123,13 @@ class Db:
                 l.amount, 
                 l.amount + l.reward as total,
                 l.legend_source_id,
-                sl.name as legend_source_name,
+                sl.name as legend_name,
                 comment
             from 
                 loans l left join sources s on l.source_id = s.id left join legend_sources sl on sl.id = l.legend_source_id
             where
                 settle_date is null
+            order by l.expected_settle_date asc
         '''
         self.cur.execute(query)
         return self.cur.fetchall()
