@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, In
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.context.context import Context
-from src.utils.utils import encode, decode
+from src.utils.utils import decode
 
 
 class CallbackFactory(ABC):
@@ -25,12 +25,13 @@ class CallbackFactory(ABC):
 
     def _preproc(self, callback_data: str) -> list:
         self.args_count = 0
-        args = callback_data.split('_')
+        args = callback_data.split('_')[1: ]
         deserialized_args = [None] * len(self.deserializers)
+        length = min(len(args), len(self.deserializers))
         for i, (arg, deserializer) in enumerate(
                 zip(
-                    args[1: len(self.deserializers)],
-                    self.deserializers[: len(args) - 1]
+                    args[: length],
+                    self.deserializers[: length]
                 )
         ):
             try:
@@ -60,20 +61,18 @@ class LoanCallbackFactory(CallbackFactory):
         self.expected_settle_date: date | None = None
         self.amount: int | None = None
         self.reward: int | None = None
-        self.comment: str | None = None
 
         self.deserializers: list[Callable[[str], Any]] = [
             lambda x: int(x),
             lambda x: int(x),
             lambda x: datetime.strptime(x, "%Y-%m-%d").date(),
-            lambda x: int(decode(x)),
-            lambda x: int(decode(x)),
-            lambda x: decode(x)
+            lambda x: int(x),
+            lambda x: int(x)
         ]
 
     def _parse_args(self, callback_data: str) -> None:
         (self.source_id, self.legend_id, self.expected_settle_date,
-         self.amount, self.reward, self.comment) = self._preproc(callback_data)
+         self.amount, self.reward) = self._preproc(callback_data)
 
     async def callback(self, callback: CallbackQuery) -> None:
         self._parse_args(callback_data=callback.data)
@@ -115,7 +114,7 @@ class LoanCallbackFactory(CallbackFactory):
         elif self.args_count == 3:
             builder = InlineKeyboardBuilder()
             buttons = [
-                InlineKeyboardButton(text=str(i), callback_data=callback.data + f"_{encode(str(i))}")
+                InlineKeyboardButton(text=str(i), callback_data=callback.data + f"_{i}")
                 for i in range(5000, 30001, 5000)
             ]
             for i in range(0, len(buttons), 2):
@@ -127,7 +126,7 @@ class LoanCallbackFactory(CallbackFactory):
             self.context.input_mode_callback_data = None
             builder = InlineKeyboardBuilder()
             buttons = [
-                InlineKeyboardButton(text=str(i), callback_data=callback.data+f"_{encode(str(i))}")
+                InlineKeyboardButton(text=str(i), callback_data=callback.data+f"_{i}")
                 for i in range(5000, 30001, 5000)
             ]
             for i in range(0, len(buttons), 2):
@@ -139,12 +138,6 @@ class LoanCallbackFactory(CallbackFactory):
                 reply_markup=builder.as_markup()
             )
         elif self.args_count == 5:
-            self.context.input_mode_callback_data = callback.data
-            await callback.message.answer(
-                text="Потрясающе! Теперь нужно ввести дополнительные сведения в виде комментария",
-                reply_markup=self.get_kb()
-            )
-        elif self.args_count == 6:
             self.context.input_mode_callback_data = None
             if self.context.db.create_loan(
                     self.source_id,
@@ -152,8 +145,7 @@ class LoanCallbackFactory(CallbackFactory):
                     self.amount,
                     self.reward,
                     self.expected_settle_date,
-                    self.legend_id,
-                    self.comment
+                    self.legend_id
             ):
                 await callback.message.answer(
                     text=f"Займ от {self.context.db.get_legend_source_name_by_id(self.legend_id)}"

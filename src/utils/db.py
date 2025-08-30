@@ -17,6 +17,20 @@ class Db:
         self.conn.commit()
         logging.info("Successfully connected")
 
+    def update_loan_comment(self, loan_id: int, comment: str) -> bool:
+        query = f'''
+            update loans
+            set comment = '{comment}'
+            where id = {loan_id}
+            returning id
+        '''
+        self.cur.execute(query)
+        res = self.cur.fetchall()
+        self.conn.commit()
+        if len(res) == 1:
+            return True
+        return False
+
     def create_loan(
             self,
             source_id: int,
@@ -25,7 +39,6 @@ class Db:
             reward: int,
             expected_settle_date: date,
             legend_source_id: int,
-            comment: str = None,
             previous_loan_id: int = None) -> bool:
         query = f'''
             insert into loans
@@ -34,17 +47,15 @@ class Db:
             amount, 
             expected_settle_date, 
             reward, 
-            legend_source_id
-            {'' if comment is None else ', comment'})
+            legend_source_id)
             values
             (
             {source_id},
-            {loan_date.strftime("%Y-%m-%d")},
+            '{loan_date.strftime("%Y-%m-%d")}',
             {amount},
+            '{expected_settle_date.strftime("%Y-%m-%d")}',
             {reward},
-            {expected_settle_date.strftime("%Y-%m-%d")},
             {legend_source_id}
-            {'' if comment is None else ", " + comment}
             )
             returning id
         '''

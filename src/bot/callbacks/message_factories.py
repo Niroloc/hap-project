@@ -1,10 +1,12 @@
+import logging
 from abc import ABC, abstractmethod
+from traceback import format_exc
+from datetime import datetime, date
 
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, Message, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.context.context import Context
-from src.utils.utils import encode
 
 class MessageFactory(ABC):
     alias: str = 'unknown'
@@ -28,10 +30,53 @@ class InputMessageFactory(MessageFactory):
         await message.answer(text="Значение принято!", reply_markup=self.get_kb())
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(text="Отмена", callback_data=self.context.input_mode_callback_data))
-        self.context.input_mode_callback_data += "_" + encode(message.text)
+        self.context.input_mode_callback_data += "_" + message.text
         builder.row(InlineKeyboardButton(text="Продолжить", callback_data=self.context.input_mode_callback_data))
         await message.answer(text="Продолжить?", reply_markup=builder.as_markup())
         self.context.input_mode_callback_data = None
+
+class CommentMessageFactory(MessageFactory):
+    alias: str = 'comment'
+    def __init__(self, context: Context):
+        super().__init__(context)
+        self.mod = 3
+        self.loan_id: int | None = None
+        self.comment: str | None = None
+
+    async def callback(self, message: Message) -> None:
+        if self.step == 0:
+            text = ""
+            buttons = []
+            for (loan_id, source_id, source_name, loan_date, expected_settle_date,
+                 amount, total, legend_id, legend_name, comment) in self.context.db.get_unsettled_loans():
+                text += (f"{loan_id}. {legend_name}({source_name}) -- {amount} -> {total} -- "
+                         f"{datetime.strptime(loan_date, '%Y-%m-%d').strftime('%d.%m.%Y')} -> "
+                         f"{datetime.strptime(expected_settle_date, '%Y-%m-%d').strftime('%d.%m.%Y')}\n")
+                buttons.append(KeyboardButton(text=str(loan_id)))
+            special_keyboard = ReplyKeyboardMarkup(
+                keyboard=[buttons[i: i+3] for i in range(0, len(buttons), 3)],
+                resize_keyboard=True
+            )
+            await message.answer(
+                text="Введите номер займа для добавления комментария:\n"+text,
+                reply_markup=special_keyboard
+            )
+            self.context.input_mode_message_alias = self.alias
+        elif self.step == 1:
+            try:
+                self.loan_id = int(message.text)
+            except:
+                logging.error("Error while parsing loan_id for adding comment")
+                logging.error(format_exc())
+                return
+            await message.answer(text="Введите комментарий к займу", reply_markup=self.get_kb())
+        elif self.step == 2:
+            self.comment = message.text
+            if self.context.db.update_loan_comment(self.loan_id, self.comment):
+                await message.answer(text="Отлично! Комментарий добавлен", reply_markup=self.get_kb())
+            else:
+                await message.answer(text="Какая-то ошибка", reply_markup=self.get_kb())
+        self.step = (self.step + 1) % self.mod
 
 
 class SourceMessageFactory(MessageFactory):
@@ -79,7 +124,8 @@ class PaybackMessageFactory(MessageFactory):
     async def callback(self, message: Message) -> None:
         builder = InlineKeyboardBuilder()
         buttons = [InlineKeyboardButton(
-            text=f"{total} ({legend_name}) до {expected_settle_date.strftime('%d.%m')}",
+            text=f"{total} ({legend_name}) до "
+                 f"{datetime.strptime(expected_settle_date, '%Y-%m-%d').strftime('%d.%m.%Y')}",
             callback_data=f"payback_{loan_id}"
         )
             for loan_id, source_id, source_name, loan_date, expected_settle_date,
@@ -104,19 +150,22 @@ class ScheduleMessageFactory(MessageFactory):
     alias: str = 'schedule'
     async def callback(self, message: Message) -> None:
         text = ""
-        prev_date = None
+        prev_date: date | None = None
         all_total = 0
         day_total = 0
         for i, (loan_id, source_id, source_name, loan_date, expected_settle_date,
             amount, total, legend_id, legend_name, comment) in enumerate(self.context.db.get_unsettled_loans()):
+            expected_settle_date = datetime.strptime(expected_settle_date, '%Y-%m-%d')
             if prev_date != expected_settle_date:
-                text += f"\t{prev_date}: {day_total} рублей\n"
+                if prev_date is not None:
+                    text += f"\n{prev_date}: {day_total} рублей\n\n"
                 prev_date = expected_settle_date
                 day_total = 0
-            text += f"{i + 1}. {total} от {loan_date} ({legend_name}) -- '{comment}' ({source_name})\n"
+            text += (f"{i + 1}. {total} по займу от {datetime.strptime(loan_date, '%Y-%m-%d').strftime('%d.%m')} "
+                     f"({legend_name}) -- '{comment}' ({source_name})\n")
             all_total += total
             day_total += total
-        text += f"\t{prev_date}: {day_total} рублей\n"
+        text += f"\n{prev_date.strftime('%d.%m')}: {day_total} рублей\n\n"
         text += f"Итого: {all_total} рублей"
         await message.answer(text=text, reply_markup=self.get_kb())
 

@@ -26,26 +26,22 @@ class CallbackHelper:
     def get_message_callback(self, text: str) -> Callable[[Message], Coroutine[Any, Any, None]]:
         if text not in self.context.BUTTON_TO_ALIAS:
             if self.context.input_mode_callback_data is not None:
-                if self.context.input_mode_message_alias is not None:
-                    self.alias_to_factory[self.context.input_mode_message_alias].step = 0
-                    self.context.input_mode_message_alias = None
+                self.context.input_mode_message_alias = None
                 return InputMessageFactory(self.context).callback
             elif self.context.input_mode_message_alias is not None:
                 self.context.input_mode_callback_data = None
                 return self.alias_to_factory[self.context.input_mode_message_alias].callback
             return self.default_message_factory.callback
 
-        if self.context.input_mode_message_alias is not None:
-            self.alias_to_factory[self.context.input_mode_message_alias].step = 0
-            self.context.input_mode_message_alias = None
-        if self.context.input_mode_callback_data is not None:
-            self.context.input_mode_callback_data = None
+        self.context.input_mode_message_alias = None
+        self.context.input_mode_callback_data = None
+        self.default_message_factory.step = 0
 
         alias = self.context.BUTTON_TO_ALIAS[text]
         if alias not in self.alias_to_factory:
             logging.warning(f"Cannot find factory for alias '{alias}'")
             return self.default_message_factory.callback
-
+        self.alias_to_factory[self.context.BUTTON_TO_ALIAS[text]].step = 0
         return self.alias_to_factory[self.context.BUTTON_TO_ALIAS[text]].callback
 
     def get_callback_factory(self, callback_data: str) -> CallbackFactory | None:
