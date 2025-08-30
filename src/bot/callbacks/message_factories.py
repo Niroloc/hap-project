@@ -158,14 +158,15 @@ class ScheduleMessageFactory(MessageFactory):
             expected_settle_date = datetime.strptime(expected_settle_date, '%Y-%m-%d')
             if prev_date != expected_settle_date:
                 if prev_date is not None:
-                    text += f"\n{prev_date}: {day_total} рублей\n\n"
+                    text += f"\n{prev_date.strftime('%d.%m')}: {day_total} рублей\n\n"
                 prev_date = expected_settle_date
                 day_total = 0
             text += (f"{i + 1}. {total} по займу от {datetime.strptime(loan_date, '%Y-%m-%d').strftime('%d.%m')} "
-                     f"({legend_name}) -- '{comment}' ({source_name})\n")
+                     f"({legend_name}) -- '{comment if comment is not None else str()}' ({source_name})\n")
             all_total += total
             day_total += total
-        text += f"\n{prev_date.strftime('%d.%m')}: {day_total} рублей\n\n"
+        if prev_date is not None:
+            text += f"\n{prev_date.strftime('%d.%m')}: {day_total} рублей\n\n"
         text += f"Итого: {all_total} рублей"
         await message.answer(text=text, reply_markup=self.get_kb())
 

@@ -20,7 +20,7 @@ class CallbackHelper:
         }
         self.default_message_factory: MessageFactory = self.alias_to_factory.get(
             context.DEFAULT_MESSAGE_FACTORY_ALIAS,
-            PaybackMessageFactory
+            ScheduleMessageFactory
         )
 
     def get_message_callback(self, text: str) -> Callable[[Message], Coroutine[Any, Any, None]]:

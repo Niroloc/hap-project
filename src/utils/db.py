@@ -81,6 +81,37 @@ class Db:
         self.conn.commit()
         return True
 
+    def settle_loan(self, loan_id: int, settle_date: date, amount: int = None, new_reward: int = None, new_expected_settle_date: date = None) -> bool:
+        query = f'''
+            select source_id, legend_source_id, amount + reward
+            from loans
+            where id = {loan_id}
+        '''
+        try:
+            self.cur.execute(query)
+        except:
+            logging.error(format_exc())
+            return False
+        source_id, legend_id, new_amount = self.cur.fetchone()
+        query = f'''
+            update loans
+            set settle_date = '{settle_date.strftime("%Y-%m-%d")}'
+            where id = {loan_id}
+        '''
+        try:
+            self.cur.execute(query)
+        except:
+            logging.error(format_exc())
+            return False
+        if amount is not None and new_reward is not None and new_expected_settle_date is not None:
+            if self.create_loan(source_id, settle_date, new_amount - amount,
+                                new_reward, new_expected_settle_date, legend_id, loan_id):
+                return True
+            else:
+                return False
+        self.conn.commit()
+        return True
+
     def add_source(self, name: str) -> bool:
         query = f'''
             insert into sources
@@ -155,7 +186,21 @@ class Db:
             return res[0][0]
         return ""
 
-    def get_unsettled_loans(self) -> list[tuple[int, int, str, date, date, int, int, int, str, str]]:
+    def get_loan_amount(self, loan_id: int) -> int:
+        query  = f'''
+            select amount + reward
+            from loans
+            where id = {loan_id}
+        '''
+        self.cur.execute(query)
+        try:
+            return self.cur.fetchone()[0]
+        except:
+            logging.error("Something went wrong while getting loan amount by id")
+            logging.error(format_exc())
+            return 0
+
+    def get_unsettled_loans(self) -> list[tuple[int, int, str, str, str, int, int, int, str, str]]:
         query = f'''
             select 
                 l.id, 
