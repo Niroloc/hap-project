@@ -221,3 +221,23 @@ class Db:
         '''
         self.cur.execute(query)
         return self.cur.fetchall()
+
+    def get_all_loans(self) -> list[tuple[str, str, str, str, int, int]]:
+        query = f'''
+            select
+                s.name as source_name,
+                l.name as legend_name,
+                l.loan_date,
+                l.settle_date,
+                l.amount,
+                l.amount + l.reward as total
+            from loans l 
+                left join sources s on l.source_id = s.id 
+                left join legend_sources sl on sl.id = l.legend_source_id
+        '''
+        try:
+            self.cur.execute(query)
+        except:
+            logging.error(format_exc())
+            return []
+        return self.cur.fetchall()

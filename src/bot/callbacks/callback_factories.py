@@ -58,6 +58,7 @@ class LoanCallbackFactory(CallbackFactory):
         super().__init__(context)
         self.source_id: int | None = None
         self.legend_id: int | None = None
+        self.loan_date: date | None = None
         self.expected_settle_date: date | None = None
         self.amount: int | None = None
         self.reward: int | None = None
@@ -66,12 +67,13 @@ class LoanCallbackFactory(CallbackFactory):
             lambda x: int(x),
             lambda x: int(x),
             lambda x: datetime.strptime(x, "%Y-%m-%d").date(),
+            lambda x: datetime.strptime(x, "%Y-%m-%d").date(),
             lambda x: int(x),
             lambda x: int(x)
         ]
 
     def _parse_args(self, callback_data: str) -> None:
-        (self.source_id, self.legend_id, self.expected_settle_date,
+        (self.source_id, self.legend_id, self.loan_date, self.expected_settle_date,
          self.amount, self.reward) = self._preproc(callback_data)
 
     async def callback(self, callback: CallbackQuery) -> None:
@@ -87,6 +89,18 @@ class LoanCallbackFactory(CallbackFactory):
                 builder.row(but)
             await callback.message.edit_text(text="А теперь выберите легенду", reply_markup=builder.as_markup())
         elif self.args_count == 2:
+            self.context.input_mode_callback_data = None
+            builder = InlineKeyboardBuilder()
+            buttons = [
+                InlineKeyboardButton(text=dt.strftime("%d.%m.%Y"),
+                                     callback_data=callback.data + f"_{dt.strftime('%Y-%m-%d')}")
+                for dt in [date.today() + timedelta(days=i) for i in range(-7, 7)]
+            ]
+            builder.row(*buttons[: 7])
+            builder.row(buttons[7])
+            builder.row(*buttons[8:])
+            await callback.message.edit_text(text="Выберите дату выдачи займа", reply_markup=builder.as_markup())
+        elif self.args_count == 3:
             self.context.input_mode_callback_data = None
             builder = InlineKeyboardBuilder()
             month = date.today().month
@@ -113,7 +127,7 @@ class LoanCallbackFactory(CallbackFactory):
             for i in range(0, len(buttons), 2):
                 builder.row(*buttons[i: i + 2])
             await callback.message.edit_text(text="Укажите ожидаемую дату возврата займа", reply_markup=builder.as_markup())
-        elif self.args_count == 3:
+        elif self.args_count == 4:
             self.context.input_mode_callback_data = None
             builder = InlineKeyboardBuilder()
             buttons = [
@@ -125,7 +139,7 @@ class LoanCallbackFactory(CallbackFactory):
             self.context.input_mode_callback_data = callback.data
             await callback.message.answer(text="Отлично!", reply_markup=self.get_kb())
             await callback.message.answer(text="Выберите или введите сумму займа", reply_markup=builder.as_markup())
-        elif self.args_count == 4:
+        elif self.args_count == 5:
             self.context.input_mode_callback_data = None
             builder = InlineKeyboardBuilder()
             buttons = [
@@ -140,11 +154,11 @@ class LoanCallbackFactory(CallbackFactory):
                 text="Укажите или введите сумму процентов в рублях",
                 reply_markup=builder.as_markup()
             )
-        elif self.args_count == 5:
+        elif self.args_count == 6:
             self.context.input_mode_callback_data = None
             if self.context.db.create_loan(
                     self.source_id,
-                    date.today(),
+                    self.loan_date,
                     self.amount,
                     self.reward,
                     self.expected_settle_date,
@@ -270,7 +284,10 @@ class PaybackCallbackFactory(CallbackFactory):
             self.context.input_mode_callback_data = None
             if self.context.db.settle_loan(self.loan_id, self.settle_date, self.amount,
                                         self.new_reward, self.new_expected_settle_date):
-                await callback.message.answer(text="Всё готово, продление жахнулось", reply_markup=self.get_kb())
+                await callback.message.answer(text=f"Продление займа №{self.loan_id} до "
+                                                   f"{self.new_expected_settle_date.strftime('%d.%m.%Y')} "
+                                                   f"успешно выполнено",
+                                              reply_markup=self.get_kb())
             else:
                 await callback.message.answer(text="Ох ты ж ё...", reply_markup=self.get_kb())
 
