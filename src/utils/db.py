@@ -8,10 +8,10 @@ from traceback import format_exc
 class Db:
     def __init__(self, filename: str, migration_folder: str):
         logging.info(f"trying to connect to {filename} with migrations from {migration_folder}")
-        self.conn = sqlite3.connect(filename)
-        self.cur = self.conn.cursor()
         with open(os.path.join(migration_folder, "forward.sql"), "rt", encoding='utf-8') as f:
             queries = f.read().split(';')
+        self.conn = sqlite3.connect(filename)
+        self.cur = self.conn.cursor()
         for query in queries:
             self.cur.execute(query)
         self.conn.commit()
@@ -61,6 +61,12 @@ class Db:
                 set next_loan_id = {res}
                 where id = {previous_loan_id}
             '''
+            try:
+                self.cur.execute(query)
+            except:
+                logging.error("An error occurred while prolonging previous loan")
+                logging.error(format_exc())
+                return False
         self.conn.commit()
         return True
 
@@ -77,6 +83,7 @@ class Db:
             logging.error("An error occurred while adding source")
             logging.error(format_exc())
             return False
+        self.conn.commit()
         return True
 
     def add_legend_source(self, name: str):
@@ -92,6 +99,7 @@ class Db:
             logging.error("An error occurred while adding source")
             logging.error(format_exc())
             return False
+        self.conn.commit()
         return True
 
     def get_sources(self) -> list[tuple[int, str]]:
@@ -103,6 +111,18 @@ class Db:
         self.cur.execute(query)
         return self.cur.fetchall()
 
+    def get_source_name_by_id(self, source_id: int) -> str:
+        query = f'''
+            select name
+            from sources
+            where id = {source_id}
+        '''
+        self.cur.execute(query)
+        res = self.cur.fetchall()
+        if len(res) == 1:
+            return res[0][0]
+        return ""
+
     def get_legend_sources(self) -> list[tuple[int, str]]:
         query = f'''
             select id, name
@@ -111,6 +131,18 @@ class Db:
         '''
         self.cur.execute(query)
         return self.cur.fetchall()
+
+    def get_legend_source_name_by_id(self, legend_id: int) -> str:
+        query = f'''
+                    select name
+                    from legend_sources
+                    where id = {legend_id}
+                '''
+        self.cur.execute(query)
+        res = self.cur.fetchall()
+        if len(res) == 1:
+            return res[0][0]
+        return ""
 
     def get_unsettled_loans(self) -> list[tuple[int, int, str, date, date, int, int, int, str, str]]:
         query = f'''

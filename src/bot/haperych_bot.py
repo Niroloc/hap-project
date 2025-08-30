@@ -37,7 +37,7 @@ class HaperychBot:
         async def callback_handler(callback: CallbackQuery):
             if not self.check_rights(callback.message):
                 return
-            f = self.helper.get_callback_factory(callback.callback_data).callback
+            f = self.helper.get_callback_factory(callback.data).callback
             if f is not None:
                 await f(callback)
 

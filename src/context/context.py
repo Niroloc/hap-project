@@ -24,7 +24,7 @@ class Context:
         if os.path.isfile(self.CONFIG_FILE):
             with open(self.CONFIG_FILE) as f:
                 data = json.load(f)
-        self.BUTTON_TO_FACTORY: dict[str ,str] = data.get("buttons_to_factory", dict())
+        self.BUTTON_TO_ALIAS: dict[str ,str] = data.get("buttons_to_factory", dict())
         self.DEFAULT_MESSAGE_FACTORY_ALIAS = data.get("default_message_factory_alias", "payback")
 
 

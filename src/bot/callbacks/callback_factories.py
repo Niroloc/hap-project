@@ -1,12 +1,14 @@
 import logging
 from abc import ABC, abstractmethod
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from traceback import format_exc
 from typing import Callable, Any, Coroutine
 
-from aiogram.types import CallbackQuery, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.context.context import Context
+from src.utils.utils import encode, decode
 
 
 class CallbackFactory(ABC):
@@ -17,7 +19,7 @@ class CallbackFactory(ABC):
         self.args_count: int = 0
 
     def get_kb(self) -> ReplyKeyboardMarkup:
-        buttons = [KeyboardButton(text=k) for k in self.context.BUTTON_TO_FACTORY]
+        buttons = [KeyboardButton(text=k) for k in self.context.BUTTON_TO_ALIAS]
         buttons = [buttons[i: i + 2] for i in range(0, len(buttons), 2)]
         return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True, one_time_keyboard=False)
 
@@ -35,8 +37,8 @@ class CallbackFactory(ABC):
                 deserialized_args[i] = deserializer(arg)
                 self.args_count += 1
             except Exception as err:
-                logging.error(f"Error {err} while processing args for {self.__name__} from {callback_data}")
-                logging.error(format_exc())
+                logging.warning(f"Error {err} while processing args for {self.__class__.__name__} from {callback_data}")
+                logging.warning(format_exc())
                 break
         return deserialized_args
 
@@ -59,13 +61,14 @@ class LoanCallbackFactory(CallbackFactory):
         self.amount: int | None = None
         self.reward: int | None = None
         self.comment: str | None = None
+
         self.deserializers: list[Callable[[str], Any]] = [
             lambda x: int(x),
             lambda x: int(x),
             lambda x: datetime.strptime(x, "%Y-%m-%d").date(),
-            lambda x: int(x),
-            lambda x: int(x),
-            lambda x: x
+            lambda x: int(decode(x)),
+            lambda x: int(decode(x)),
+            lambda x: decode(x)
         ]
 
     def _parse_args(self, callback_data: str) -> None:
@@ -75,19 +78,98 @@ class LoanCallbackFactory(CallbackFactory):
     async def callback(self, callback: CallbackQuery) -> None:
         self._parse_args(callback_data=callback.data)
         if self.args_count == 1:
-            pass
+            builder = InlineKeyboardBuilder()
+            buttons = [
+                InlineKeyboardButton(text=legend_name, callback_data=callback.data+f"_{legend_id}")
+                for legend_id, legend_name in self.context.db.get_legend_sources()
+            ]
+            for but in buttons:
+                builder.row(but)
+            await callback.message.edit_text(text="А теперь выберите легенду", reply_markup=builder.as_markup())
         elif self.args_count == 2:
-            pass
+            builder = InlineKeyboardBuilder()
+            month = date.today().month
+            year = date.today().year
+            last_day_of_month = [-1, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            buttons = []
+            for _ in range(4):
+                dt = date(year=year, month=month, day=15)
+                buttons.append(
+                    InlineKeyboardButton(
+                        text=dt.strftime("%d.%m.%Y"),
+                        callback_data=callback.data+f"_{dt.strftime('%Y-%m-%d')}"
+                    )
+                )
+                dt = date(year=year, month=month, day=last_day_of_month[month])
+                buttons.append(
+                    InlineKeyboardButton(
+                        text=dt.strftime("%d.%m.%Y"),
+                        callback_data=callback.data+f"_{dt.strftime('%Y-%m-%d')}"
+                    )
+                )
+                year += month // 12
+                month = month % 12 + 1
+            for i in range(0, len(buttons), 2):
+                builder.row(*buttons[i: i + 2])
+            await callback.message.edit_text(text="Укажите ожидаемую дату возврата займа", reply_markup=builder.as_markup())
         elif self.args_count == 3:
-            pass
+            builder = InlineKeyboardBuilder()
+            buttons = [
+                InlineKeyboardButton(text=str(i), callback_data=callback.data + f"_{encode(str(i))}")
+                for i in range(5000, 30001, 5000)
+            ]
+            for i in range(0, len(buttons), 2):
+                builder.row(*buttons[i: i + 2])
+            self.context.input_mode_callback_data = callback.data
+            await callback.message.answer(text="Отлично!", reply_markup=self.get_kb())
+            await callback.message.answer(text="Выберите или введите сумму займа", reply_markup=builder.as_markup())
         elif self.args_count == 4:
-            pass
+            self.context.input_mode_callback_data = None
+            builder = InlineKeyboardBuilder()
+            buttons = [
+                InlineKeyboardButton(text=str(i), callback_data=callback.data+f"_{encode(str(i))}")
+                for i in range(5000, 30001, 5000)
+            ]
+            for i in range(0, len(buttons), 2):
+                builder.row(*buttons[i: i + 2])
+            self.context.input_mode_callback_data = callback.data
+            await callback.message.answer(text="Супер!", reply_markup=self.get_kb())
+            await callback.message.answer(
+                text="Укажите или введите сумму процентов в рублях",
+                reply_markup=builder.as_markup()
+            )
         elif self.args_count == 5:
-            pass
+            self.context.input_mode_callback_data = callback.data
+            await callback.message.answer(
+                text="Потрясающе! Теперь нужно ввести дополнительные сведения в виде комментария",
+                reply_markup=self.get_kb()
+            )
         elif self.args_count == 6:
-            pass
+            self.context.input_mode_callback_data = None
+            if self.context.db.create_loan(
+                    self.source_id,
+                    date.today(),
+                    self.amount,
+                    self.reward,
+                    self.expected_settle_date,
+                    self.legend_id,
+                    self.comment
+            ):
+                await callback.message.answer(
+                    text=f"Займ от {self.context.db.get_legend_source_name_by_id(self.legend_id)}"
+                         f"({self.context.db.get_source_name_by_id(self.source_id)}) "
+                         f"на сумму {self.amount}, "
+                         f"к возврату {self.amount + self.reward} {self.expected_settle_date.strftime('%d.%m.%Y')} "
+                         f"успешно оформлен!",
+                    reply_markup=self.get_kb()
+                )
+            else:
+                await callback.message.answer(
+                    text="Ошибка, проверяем логи!",
+                    reply_markup=self.get_kb()
+                )
         else:
-            logging.error(f"An error occurred while processing callback for {callback.data} in {self.__name__}")
+            logging.error(f"An error occurred while processing callback for {callback.data} in {self.__class__.__name__}")
             await callback.message.answer(text="Ой ёй..")
         await callback.answer()
 
@@ -96,15 +178,15 @@ class PaybackCallbackFactory(CallbackFactory):
     def __init__(self, context: Context):
         super().__init__(context)
         self.loan_id: int | None = None
-        self.amount: int | None = None
         self.settle_date: date | None = None
+        self.amount: int | None = None
         self.new_reward: int | None = None
         self.new_expected_settle_date: date | None = None
         self.deserializers: list[Callable[[str], Any]] = [
             lambda x: int(x),
-            lambda x: int(x),
             lambda x: datetime.strptime(x, "%Y-%m-%d").date(),
-            lambda x: int(x),
+            lambda x: int(decode(x)),
+            lambda x: int(decode(x)),
             lambda x: datetime.strptime(x, "%Y-%m-%d").date()
         ]
 
@@ -121,6 +203,6 @@ class PaybackCallbackFactory(CallbackFactory):
         elif self.args_count == 3:
             pass
         else:
-            logging.error(f"An error occurred while processing callback for {callback.data} in {self.__name__}")
+            logging.error(f"An error occurred while processing callback for {callback.data} in {self.__class__.__name__}")
             await callback.message.answer(text="Что-то не то...", reply_markup=self.get_kb())
         await callback.answer()
