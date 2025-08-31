@@ -35,9 +35,15 @@ class CallbackHelper:
 
         self.context.input_mode_message_alias = None
         self.context.input_mode_callback_data = None
-        self.default_message_factory.step = 0
 
         alias = self.context.BUTTON_TO_ALIAS[text]
+
+        if alias != 'analytics':
+            self.context.rebuild_reporter_movements = True
+        elif self.context.rebuild_reporter_movements:
+            self.context.reporter.get_movements()
+            self.context.rebuild_reporter_movements = False
+
         if alias not in self.alias_to_factory:
             logging.warning(f"Cannot find factory for alias '{alias}'")
             return self.default_message_factory.callback

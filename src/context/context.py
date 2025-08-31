@@ -3,6 +3,7 @@ import logging
 import os
 
 from src.utils.db import Db
+from src.utils.reports import Reporter
 
 
 class Context:
@@ -27,7 +28,9 @@ class Context:
         self.BUTTON_TO_ALIAS: dict[str ,str] = data.get("buttons_to_factory", dict())
         self.DEFAULT_MESSAGE_FACTORY_ALIAS = data.get("default_message_factory_alias", "payback")
 
+        self.db: Db = Db(self.DB_FILE, self.MIGRATIONS_FOLDER)
+        self.reporter: Reporter = Reporter(self.db.conn)
+        self.rebuild_reporter_movements: bool = True
 
-        self.db = Db(self.DB_FILE, self.MIGRATIONS_FOLDER)
         self.input_mode_callback_data: str | None = None
         self.input_mode_message_alias: str | None = None

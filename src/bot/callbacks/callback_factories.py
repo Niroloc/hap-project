@@ -2,13 +2,12 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from traceback import format_exc
-from typing import Callable, Any, Coroutine
+from typing import Callable, Any
 
 from aiogram.types import CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.context.context import Context
-from src.utils.utils import decode
 
 
 class CallbackFactory(ABC):

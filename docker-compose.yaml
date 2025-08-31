@@ -1,8 +1,8 @@
 services:
   bot:
-    restart: always
+    restart: unless-stopped
     build:
       context: ./
     volumes:
-      - ./db_data/:/app/src/data/
-      - ./migrations/:/app/src/migrations/
+      - ./db_data/:/db_data/
+      - ./migrations/:/migrations/
