@@ -174,4 +174,13 @@ class ScheduleMessageFactory(MessageFactory):
 class AnalyticsMessageFactory(MessageFactory):
     alias: str = 'analytics'
     async def callback(self, message: Message) -> None:
-        await message.answer(text="Функционал ещё не поддержан", reply_markup=self.get_kb())
+        builder = InlineKeyboardBuilder()
+        builder.row(InlineKeyboardButton(
+            text="Динамика позиции по источникам",
+            callback_data=self.alias+"_source"
+        ))
+        builder.row(InlineKeyboardButton(
+            text="Динамика позиции по легендам",
+            callback_data=self.alias+"_legend"
+        ))
+        await message.answer(text="Какая аналитика вас интересует?", reply_markup=builder.as_markup())

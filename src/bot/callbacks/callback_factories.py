@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from traceback import format_exc
 from typing import Callable, Any
 
-from aiogram.types import CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton
+from aiogram.types import CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, FSInputFile
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.context.context import Context
@@ -293,4 +293,64 @@ class PaybackCallbackFactory(CallbackFactory):
         else:
             logging.error(f"An error occurred while processing callback for {callback.data} in {self.__class__.__name__}")
             await callback.message.answer(text="Что-то не то...", reply_markup=self.get_kb())
+        await callback.answer()
+
+
+class AnalyticsCallbackFactory(CallbackFactory):
+    prefix: str = 'analytics'
+    def __init__(self, context: Context):
+        super().__init__(context)
+        self.by: str | None = None
+        self.year: int | None = None
+        self.month: int | None = None
+        self.deserializers: list[Callable[[str], Any]] = [
+            lambda x: x,
+            lambda x: int(x),
+            lambda x: int(x)
+        ]
+        self.by_to_callback = {
+            "source": self.context.reporter.get_graphic_by_sources,
+            "legend": lambda *x: None
+        }
+
+    def _parse_args(self, callback_data: str) -> None:
+        self.by, self.year, self.month = self._preproc(callback_data)
+
+    async def callback(self, callback: CallbackQuery) -> None:
+        self._parse_args(callback.data)
+        if self.args_count == 1:
+            builder = InlineKeyboardBuilder()
+            builder.row(InlineKeyboardButton(text="Все время наблюдений", callback_data=callback.data+"_-1"))
+            buttons = [
+                InlineKeyboardButton(
+                    text=str(i),
+                    callback_data=callback.data+f"_{i}"
+                )
+                for i in range(date.today().year - 4, date.today().year + 1)
+            ]
+            builder.row(*buttons)
+            await callback.message.edit_text(text="Выберите год для аналитики", reply_markup=builder.as_markup())
+        elif self.args_count == 2:
+            if self.year == -1:
+                graphic = self.by_to_callback[self.by]()
+                await callback.message.answer(text="Ожидайте фото следующим сообщением", reply_markup=self.get_kb())
+                await callback.message.answer_photo(photo=graphic)
+            else:
+                builder = InlineKeyboardBuilder()
+                builder.row(InlineKeyboardButton(text="Весь год", callback_data=callback.data + "_-1"))
+                buttons = [
+                    InlineKeyboardButton(
+                        text=str(i),
+                        callback_data=callback.data + f"_{i}"
+                    )
+                    for i in range(1, 13)
+                ]
+                builder.row(*buttons)
+                await callback.message.edit_text(text="Выберите месяц для аналитики", reply_markup=builder.as_markup())
+        elif self.args_count == 4:
+            if self.month == -1:
+                self.month = None
+            graphic = self.by_to_callback[self.by](self.year, self.month)
+            await callback.message.answer(text="Ожидайте фото следующим сообщением", reply_markup=self.get_kb())
+            await callback.message.answer_photo(photo=FSInputFile(graphic))
         await callback.answer()

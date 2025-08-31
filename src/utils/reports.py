@@ -1,3 +1,4 @@
+import os.path
 from sqlite3 import Connection
 from datetime import date, datetime
 
@@ -10,7 +11,7 @@ class Reporter:
         self.conn = db_conn
         self.movements: pd.DataFrame = pd.DataFrame(columns=["source_name", "legend_name", "date", "movement"])
 
-    def get_movements(self) -> None:
+    def get_movements(self) -> str:
         query = f'''
             select
                 s.name as source_name,
@@ -33,7 +34,7 @@ class Reporter:
         self.movements["date"] = self.movements["date"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d"))
         self.movements.sort_values(by=['date'], inplace=True)
 
-    def get_graphic_by_sources(self, year: int | None = None, month: int | None = None):
+    def get_graphic_by_sources(self, year: int | None = None, month: int | None = None) -> str:
         data = self.movements[["source_name", "date", "movement"]]
         positions = data.groupby(["source_name", "date"]).sum().groupby(level=0).cumsum().reset_index()
         positions.rename(columns={"movement": "position"}, inplace=True)
@@ -51,7 +52,12 @@ class Reporter:
             plt.plot(view["date"], view["position"], label=source)
         plt.legend()
         plt.grid()
-        plt.savefig(
-            f"report_by_sources_"
-            f"{'all' if year is None else year}"
-            f"{'' if month is None or year is None else '_'+str(month)}.png")
+        tmp_folder = "/tmp"
+        os.makedirs(tmp_folder, exist_ok=True)
+        result_file = (f"report_by_sources_"
+                       f"{'all' if year is None else year}"
+                       f"{'' if month is None or year is None else '_'+str(month)}.png")
+        result_file = os.path.join(tmp_folder, result_file)
+        plt.savefig(result_file)
+        return result_file
+
