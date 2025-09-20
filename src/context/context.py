@@ -14,10 +14,10 @@ class Context:
             self.ADMIN_ID = int(os.getenv('ADMIN_ID', ""))
         except ValueError:
             logging.error("Cannot read admin id from env vars ADNIN_ID = '{}'".format(os.getenv('ADMIN_ID', "")))
-        self.DB_FILE: str = '/data/db.db'
+        self.DB_FILE: str = '/db_data/db.db'
         self.CONFIG_FILE = '/config/config.json'
         self.MIGRATIONS_FOLDER: str = '/migrations'
-        if os.getenv('ENVIRNMENT', 'dev') == 'dev':
+        if os.getenv('ENVIRONMENT', 'dev') == 'dev':
             self.DB_FILE = f'{os.environ["HOME"]}/PycharmProjects/haperychProject/db_data/db.db'
             self.CONFIG_FILE = f'{os.environ["HOME"]}/PycharmProjects/haperychProject/config/config.json'
             self.MIGRATIONS_FOLDER = f'{os.environ["HOME"]}/PycharmProjects/haperychProject/migrations/'
