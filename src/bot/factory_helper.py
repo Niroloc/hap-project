@@ -52,6 +52,11 @@ class CallbackHelper:
 
     def get_callback_factory(self, callback_data: str) -> CallbackFactory | None:
         prefix = callback_data.split("_")[0]
+        if prefix != 'analytics':
+            self.context.rebuild_reporter_movements = True
+        elif self.context.rebuild_reporter_movements:
+            self.context.reporter.get_movements()
+            self.context.rebuild_reporter_movements = False
         if prefix not in self.prefix_to_callback_factory:
             logging.error(f"Prefix {callback_data} is not valid")
             return None

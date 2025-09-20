@@ -52,7 +52,7 @@ class Reporter:
             plt.plot(view["date"], view["position"], label=source)
         plt.legend()
         plt.grid()
-        tmp_folder = "/tmp"
+        tmp_folder = "./tmp"
         os.makedirs(tmp_folder, exist_ok=True)
         result_file = (f"report_by_sources_"
                        f"{'all' if year is None else year}"

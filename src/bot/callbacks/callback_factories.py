@@ -334,7 +334,7 @@ class AnalyticsCallbackFactory(CallbackFactory):
             if self.year == -1:
                 graphic = self.by_to_callback[self.by]()
                 await callback.message.answer(text="Ожидайте фото следующим сообщением", reply_markup=self.get_kb())
-                await callback.message.answer_photo(photo=graphic)
+                await callback.message.answer_photo(photo=FSInputFile(graphic))
             else:
                 builder = InlineKeyboardBuilder()
                 builder.row(InlineKeyboardButton(text="Весь год", callback_data=callback.data + "_-1"))

@@ -2,5 +2,6 @@
 .idea/
 __pycache__/
 .vscode/
+src/tmp/
 .env
 db_data/db.db
