@@ -1,4 +1,5 @@
 FROM python:3.10.12
+USER root
 
 COPY requirements.txt /app/build/requirements.txt
 WORKDIR /app/build/

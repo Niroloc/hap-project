@@ -6,3 +6,6 @@ services:
     volumes:
       - ./db_data/:/db_data/
       - ./migrations/:/migrations/
+      - ./config/:/config/
+    env_file:
+      - .env
