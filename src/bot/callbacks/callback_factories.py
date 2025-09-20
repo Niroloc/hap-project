@@ -4,8 +4,10 @@ from datetime import date, datetime, timedelta
 from traceback import format_exc
 from typing import Callable, Any
 
-from aiogram.types import CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, FSInputFile
+from aiogram.types import CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, FSInputFile, \
+    InputMediaPhoto
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.media_group import MediaGroupBuilder
 
 from src.context.context import Context
 
@@ -309,8 +311,8 @@ class AnalyticsCallbackFactory(CallbackFactory):
             lambda x: int(x)
         ]
         self.by_to_callback = {
-            "source": self.context.reporter.get_graphic_by_sources,
-            "legend": lambda *x: None
+            "source": lambda *x: self.context.reporter.get_graphic_by_sources('source_name', *x),
+            "legend": lambda *x: self.context.reporter.get_graphic_by_sources('legend_name', *x)
         }
 
     def _parse_args(self, callback_data: str) -> None:
@@ -332,9 +334,9 @@ class AnalyticsCallbackFactory(CallbackFactory):
             await callback.message.edit_text(text="Выберите год для аналитики", reply_markup=builder.as_markup())
         elif self.args_count == 2:
             if self.year == -1:
-                graphic = self.by_to_callback[self.by]()
+                graphics = self.by_to_callback[self.by]()
                 await callback.message.answer(text="Ожидайте фото следующим сообщением", reply_markup=self.get_kb())
-                await callback.message.answer_photo(photo=FSInputFile(graphic))
+                await callback.message.answer_media_group(media=self._get_group_for_sending_graphics(graphics))
             else:
                 builder = InlineKeyboardBuilder()
                 builder.row(InlineKeyboardButton(text="Весь год", callback_data=callback.data + "_-1"))
@@ -350,7 +352,13 @@ class AnalyticsCallbackFactory(CallbackFactory):
         elif self.args_count == 4:
             if self.month == -1:
                 self.month = None
-            graphic = self.by_to_callback[self.by](self.year, self.month)
+            graphics = self.by_to_callback[self.by](self.year, self.month)
             await callback.message.answer(text="Ожидайте фото следующим сообщением", reply_markup=self.get_kb())
-            await callback.message.answer_photo(photo=FSInputFile(graphic))
+            await callback.message.answer_media_group(media=self._get_group_for_sending_graphics(graphics))
         await callback.answer()
+
+    def _get_group_for_sending_graphics(self, graphics: list[str]) -> list[InputMediaPhoto]:
+        builder = MediaGroupBuilder(caption="Графики подъехали")
+        for g in graphics:
+            builder.add(type="photo", media=FSInputFile(g))
+        return builder.build()
