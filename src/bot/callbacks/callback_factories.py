@@ -138,8 +138,7 @@ class LoanCallbackFactory(CallbackFactory):
             for i in range(0, len(buttons), 2):
                 builder.row(*buttons[i: i + 2])
             self.context.input_mode_callback_data = callback.data
-            await callback.message.answer(text="Отлично!", reply_markup=self.get_kb())
-            await callback.message.answer(text="Выберите или введите сумму займа", reply_markup=builder.as_markup())
+            await callback.message.edit_text(text="Выберите или введите сумму займа", reply_markup=builder.as_markup())
         elif self.args_count == 5:
             self.context.input_mode_callback_data = None
             builder = InlineKeyboardBuilder()
@@ -150,8 +149,7 @@ class LoanCallbackFactory(CallbackFactory):
             for i in range(0, len(buttons), 2):
                 builder.row(*buttons[i: i + 2])
             self.context.input_mode_callback_data = callback.data
-            await callback.message.answer(text="Супер!", reply_markup=self.get_kb())
-            await callback.message.answer(
+            await callback.message.edit_text(
                 text="Укажите или введите сумму процентов в рублях",
                 reply_markup=builder.as_markup()
             )
@@ -250,8 +248,7 @@ class PaybackCallbackFactory(CallbackFactory):
                 for i in range(0, len(buttons), 2):
                     builder.row(*buttons[i: i + 2])
                 self.context.input_mode_callback_data = callback.data
-                await callback.message.answer(text="Okay!", reply_markup=self.get_kb())
-                await callback.message.answer(text="Выберите или введите сумму процентов за продление в рублях",
+                await callback.message.edit_text(text="Выберите или введите сумму процентов за продление в рублях",
                                               reply_markup=builder.as_markup())
         elif self.args_count == 4:
             self.context.input_mode_callback_data = None
@@ -279,7 +276,7 @@ class PaybackCallbackFactory(CallbackFactory):
                 month = month % 12 + 1
             for i in range(0, len(buttons), 2):
                 builder.row(*buttons[i: i + 2])
-            await callback.message.answer(text="Выберите дату ожидаемого погашения продления",
+            await callback.message.edit_text(text="Выберите дату ожидаемого погашения продления",
                                           reply_markup=builder.as_markup())
         elif self.args_count == 5:
             self.context.input_mode_callback_data = None

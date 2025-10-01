@@ -26,10 +26,10 @@ class Db:
         '''
         self.cur.execute(query)
         res = self.cur.fetchall()
+        if len(res) != 1:
+            return False
         self.conn.commit()
-        if len(res) == 1:
-            return True
-        return False
+        return True
 
     def create_loan(
             self,
@@ -83,7 +83,7 @@ class Db:
 
     def settle_loan(self, loan_id: int, settle_date: date, amount: int = None, new_reward: int = None, new_expected_settle_date: date = None) -> bool:
         query = f'''
-            select source_id, legend_source_id, amount + reward
+            select source_id, legend_source_id, amount + reward, comment
             from loans
             where id = {loan_id}
         '''
@@ -92,7 +92,7 @@ class Db:
         except:
             logging.error(format_exc())
             return False
-        source_id, legend_id, new_amount = self.cur.fetchone()
+        source_id, legend_id, new_amount, comment = self.cur.fetchone()
         query = f'''
             update loans
             set settle_date = '{settle_date.strftime("%Y-%m-%d")}'
@@ -104,10 +104,10 @@ class Db:
             logging.error(format_exc())
             return False
         if amount is not None and new_reward is not None and new_expected_settle_date is not None:
-            if self.create_loan(source_id, settle_date, new_amount - amount,
+            if not self.create_loan(source_id, settle_date, new_amount - amount,
                                 new_reward, new_expected_settle_date, legend_id, loan_id):
-                return True
-            else:
+                return False
+            if not self.update_loan_comment(loan_id, comment):
                 return False
         self.conn.commit()
         return True
