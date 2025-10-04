@@ -332,7 +332,7 @@ class AnalyticsCallbackFactory(CallbackFactory):
         elif self.args_count == 2:
             if self.year == -1:
                 graphics = self.by_to_callback[self.by]()
-                await callback.message.answer(text="Ожидайте фото следующим сообщением", reply_markup=self.get_kb())
+                await callback.message.answer(text="Ожидайте графики следующим сообщением", reply_markup=self.get_kb())
                 await callback.message.answer_media_group(media=self._get_group_for_sending_graphics(graphics))
             else:
                 builder = InlineKeyboardBuilder()
@@ -346,6 +346,10 @@ class AnalyticsCallbackFactory(CallbackFactory):
                 ]
                 builder.row(*buttons)
                 await callback.message.edit_text(text="Выберите месяц для аналитики", reply_markup=builder.as_markup())
+        elif self.args_count == 3:
+            graphics = self.by_to_callback[self.by](self.year, self.month if self.month > -1 else None)
+            await callback.message.answer(text="Ожидайте графики следующим сообщением", reply_markup=self.get_kb())
+            await callback.message.answer_media_group(media=self._get_group_for_sending_graphics(graphics))
         elif self.args_count == 4:
             if self.month == -1:
                 self.month = None
