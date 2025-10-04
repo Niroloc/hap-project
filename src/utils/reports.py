@@ -40,33 +40,47 @@ class Reporter:
         data = data.rename(columns={source_id: "source"})
         positions = data.groupby(["source", "date"]).sum().groupby(level=0).cumsum().reset_index()
         positions.rename(columns={"movement": "position"}, inplace=True)
+        all_source_positions = positions[["date", "position", "duty"]].groupby("date").sum().reset_index()
         if year is not None:
+            all_source_positions = all_source_positions[all_source_positions["date"].dt.year == year]
             positions = positions[positions["date"].dt.year == year]
             if month is not None:
+                all_source_positions = all_source_positions[all_source_positions["date"].dt.month == month]
                 positions = positions[positions["date"].dt.month == month]
         sources = positions["source"].unique()
 
         plt.ioff()
         result_files: list[str] = []
+        plt.figure(figsize=(12, 12))
+        plt.title(f"Проект Хапэрыч, динамика позиции")
+        result_files.append(
+            self._plot_view(all_source_positions, self._create_filename(None, year, month))
+            )
         for i, source in enumerate(sources):
             plt.figure(figsize=(12, 12))
             plt.title(f"Проект Хапэрыч, динамика позиций источнику: {source}"
                       f"({'реальный' if source_id == 'source_name' else 'легенда'})")
-            view = positions[positions["source"] == source]
-            plt.plot(view["date"], view["position"], label=source)
-            plt.plot(view["date"], view["duty"] + view["position"],
-                     label=f'{source} - ожидаемая доходность',
-                     linestyle='--')
-            plt.legend()
-            plt.grid()
-            tmp_folder = "./tmp"
-            os.makedirs(tmp_folder, exist_ok=True)
-            result_file = (f"report_by_{source_id}_{i}_"
-                           f"{'all' if year is None else year}"
-                           f"{'' if month is None or year is None else '_'+str(month)}.png")
-            result_file = os.path.join(tmp_folder, result_file)
-            plt.savefig(result_file)
-            result_files.append(result_file)
-
+            result_files.append(
+                self._plot_view(positions[positions["source"] == source], self._create_filename(i, year, month), source)
+                )
         return result_files
-
+    
+    def _plot_view(self, view: pd.DataFrame, filename: str, source_name: str|None = None) -> str:
+        plt.plot(view["date"], view["position"], label={source_name if source_name is not None else 'Позиция'})
+        plt.plot(view["date"], view["duty"], label='Долг')
+        plt.plot(view["date"], view["duty"] + view["position"],
+                    label=f'Ожидаемая доходность',
+                    linestyle='--')
+        
+        plt.legend()
+        plt.grid()
+        plt.savefig(filename)
+        return filename
+    
+    def _create_filename(self, source: None|int = None, year: None|int = None, month: None|int = None) -> str:
+        tmp_folder = "./tmp"
+        os.makedirs(tmp_folder, exist_ok=True)
+        result_file = (f"report_by_{source if source is not None else 'all'}_"
+                        f"{'all' if year is None else year}"
+                        f"{'' if month is None or year is None else '_'+str(month)}.png")
+        return os.path.join(tmp_folder, result_file)

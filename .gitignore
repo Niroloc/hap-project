@@ -5,3 +5,4 @@ __pycache__/
 src/tmp/
 .env
 db_data/db.db
+researches/
