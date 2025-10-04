@@ -40,13 +40,37 @@ class Reporter:
         data = data.rename(columns={source_id: "source"})
         positions = data.groupby(["source", "date"]).sum().groupby(level=0).cumsum().reset_index()
         positions.rename(columns={"movement": "position"}, inplace=True)
+        positions.sort_values(by="date", inplace=True)
         all_source_positions = positions[["date", "position", "duty"]].groupby("date").sum().reset_index()
+        all_source_positions.sort_values(by="date", inplace=True)
         if year is not None:
             all_source_positions = all_source_positions[all_source_positions["date"].dt.year == year]
             positions = positions[positions["date"].dt.year == year]
             if month is not None:
                 all_source_positions = all_source_positions[all_source_positions["date"].dt.month == month]
                 positions = positions[positions["date"].dt.month == month]
+            ss = positions["source"].unique()
+            for source in ss:
+                days = positions[positions["source"] == source]
+                if len(days) == 0:
+                    continue
+                first_day = days["date"].iloc[0]
+                first_duty = days["duty"].iloc[0]
+                first_pos = days["position"].iloc[0]
+                movs = self.movements[(self.movements[source_id] == source) & (self.movements["date"] == first_day)][["date", "movement", "duty"]].groupby("date").sum().reset_index()
+                duty = movs.duty.iloc[0] if len(movs) > 0 else 0
+                mov = movs.movement.iloc[0] if len(movs) > 0 else 0
+                delta = duty + mov - first_duty - first_pos
+                positions.loc[positions["source"] == source, ["position"]] += delta
+            if len(all_source_positions) != 0:
+                first_day = all_source_positions["date"].iloc[0]
+                first_duty = all_source_positions["duty"].iloc[0]
+                first_pos = all_source_positions["position"].iloc[0]
+                movs = self.movements[self.movements["date"] == first_day][["date", "movement", "duty"]].groupby("date").sum().reset_index()
+                duty = movs.duty.iloc[0] if len(movs) > 0 else 0
+                mov = movs.movement.iloc[0] if len(movs) > 0 else 0
+                delta = duty + mov - first_duty - first_pos
+                all_source_positions["position"] += delta
         sources = positions["source"].unique()
 
         plt.ioff()
