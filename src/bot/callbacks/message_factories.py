@@ -135,6 +135,22 @@ class PaybackMessageFactory(MessageFactory):
         await message.answer(text="Выберите займ для погашения", reply_markup=builder.as_markup())
 
 
+class MultiplePaybackFactory(MessageFactory):
+    alias: str = 'multback'
+    async def callback(self, message: Message) -> None:
+        builder = InlineKeyboardBuilder()
+        buttons = [InlineKeyboardButton(
+            text=f"{total} ({legend_name}) до "
+                 f"{datetime.strptime(expected_settle_date, '%Y-%m-%d').strftime('%d.%m.%Y')}",
+            callback_data=f"mulback_{loan_id}"
+        )
+            for loan_id, source_id, source_name, loan_date, expected_settle_date,
+            amount, total, legend_id, legend_name, comment in self.context.db.get_unsettled_loans()]
+        for but in buttons:
+            builder.row(but)
+        await message.answer(text="Выберите первый займ для погашения", reply_markup=builder.as_markup())
+
+
 class LoanMessageFactory(MessageFactory):
     alias: str = 'loan'
     async def callback(self, message: Message) -> None:

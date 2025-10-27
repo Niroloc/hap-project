@@ -39,7 +39,7 @@ class Db:
             reward: int,
             expected_settle_date: date,
             legend_source_id: int,
-            previous_loan_id: int = None) -> bool:
+            previous_loan_ids: list[int] = []) -> bool:
         query = f'''
             insert into loans
             (source_id, 
@@ -66,7 +66,7 @@ class Db:
             logging.error("An error occurred while creating new loan")
             logging.error(format_exc())
             return False
-        if previous_loan_id is not None:
+        for previous_loan_id in previous_loan_ids:
             query = f'''
                 update loans
                 set next_loan_id = {res}
@@ -81,33 +81,50 @@ class Db:
         self.conn.commit()
         return True
 
-    def settle_loan(self, loan_id: int, settle_date: date, amount: int = None, new_reward: int = None, new_expected_settle_date: date = None) -> bool:
-        query = f'''
-            select source_id, legend_source_id, amount + reward, comment
-            from loans
-            where id = {loan_id}
-        '''
-        try:
-            self.cur.execute(query)
-        except:
-            logging.error(format_exc())
-            return False
-        source_id, legend_id, new_amount, comment = self.cur.fetchone()
-        query = f'''
-            update loans
-            set settle_date = '{settle_date.strftime("%Y-%m-%d")}'
-            where id = {loan_id}
-        '''
-        try:
-            self.cur.execute(query)
-        except:
-            logging.error(format_exc())
-            return False
-        if amount is not None and new_reward is not None and new_expected_settle_date is not None:
-            if not self.create_loan(source_id, settle_date, new_amount - amount,
-                                new_reward, new_expected_settle_date, legend_id, loan_id):
+    def settle_loans(self, loan_ids: list[int], settle_date: date, amount: int = None, new_reward: int = None, new_expected_settle_date: date = None) -> bool:
+        do_next: bool = amount is not None and new_reward is not None and new_expected_settle_date is not None
+        total_amount: int = 0
+        final_source_id: None | int = None
+        final_legend_id: None | int = None
+        last_comment: str | None = None
+        for loan_id in loan_ids:
+            query = f'''
+                select source_id, legend_source_id, amount + reward, comment
+                from loans
+                where id = {loan_id}
+            '''
+            try:
+                self.cur.execute(query)
+            except:
+                logging.error(format_exc())
                 return False
-            if not self.update_loan_comment(loan_id, comment):
+            source_id, legend_id, new_amount, comment = self.cur.fetchone()
+            total_amount += amount
+            if final_source_id is None:
+                final_source_id = source_id
+            elif final_source_id != source_id:
+                logging.error(f"Some loans have different sources")
+                return False
+            if final_legend_id is None:
+                final_legend_id = legend_id
+            elif final_legend_id != legend_id:
+                logging.error("Some loans have different legends")
+            last_comment = comment
+            query = f'''
+                update loans
+                set settle_date = '{settle_date.strftime("%Y-%m-%d")}'
+                where id = {loan_id}
+            '''
+            try:
+                self.cur.execute(query)
+            except:
+                logging.error(format_exc())
+                return False
+        if do_next:
+            if not self.create_loan(final_source_id, settle_date, total_amount - amount,
+                                new_reward, new_expected_settle_date, final_legend_id, loan_ids):
+                return False
+            if len(loan_ids) == 1 and not self.update_loan_comment(loan_ids[0], last_comment):
                 return False
         self.conn.commit()
         return True
@@ -186,19 +203,22 @@ class Db:
             return res[0][0]
         return ""
 
-    def get_loan_amount(self, loan_id: int) -> int:
-        query  = f'''
-            select amount + reward
-            from loans
-            where id = {loan_id}
-        '''
-        self.cur.execute(query)
-        try:
-            return self.cur.fetchone()[0]
-        except:
-            logging.error("Something went wrong while getting loan amount by id")
-            logging.error(format_exc())
-            return 0
+    def get_loan_amount(self, *loan_ids: int) -> int:
+        final_amount = 0
+        for loan_id in loan_ids:
+            query  = f'''
+                select amount + reward
+                from loans
+                where id = {loan_id}
+            '''
+            self.cur.execute(query)
+            try:
+                final_amount += self.cur.fetchone()[0]
+            except:
+                logging.error(f"Something went wrong while getting loan amount by id = {loan_id}")
+                logging.error(format_exc())
+                return 0
+        return final_amount
 
     def get_unsettled_loans(self) -> list[tuple[int, int, str, str, str, int, int, int, str, str]]:
         query = f'''

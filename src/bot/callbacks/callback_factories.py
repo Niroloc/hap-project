@@ -1,3 +1,5 @@
+import collections
+import itertools
 import logging
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
@@ -233,7 +235,7 @@ class PaybackCallbackFactory(CallbackFactory):
         elif self.args_count == 3:
             self.context.input_mode_callback_data = None
             if self.amount >= self.context.db.get_loan_amount(self.loan_id):
-                if self.context.db.settle_loan(self.loan_id, self.settle_date):
+                if self.context.db.settle_loans([self.loan_id], self.settle_date):
                     await callback.message.answer(text="Кажется, займ можно закрывать, уже готово",
                                                   reply_markup=self.get_kb())
                 else:
@@ -280,8 +282,8 @@ class PaybackCallbackFactory(CallbackFactory):
                                           reply_markup=builder.as_markup())
         elif self.args_count == 5:
             self.context.input_mode_callback_data = None
-            if self.context.db.settle_loan(self.loan_id, self.settle_date, self.amount,
-                                        self.new_reward, self.new_expected_settle_date):
+            if self.context.db.settle_loans([self.loan_id], self.settle_date, self.amount,
+                                            self.new_reward, self.new_expected_settle_date):
                 await callback.message.answer(text=f"Продление займа №{self.loan_id} до "
                                                    f"{self.new_expected_settle_date.strftime('%d.%m.%Y')} "
                                                    f"успешно выполнено",
@@ -291,6 +293,144 @@ class PaybackCallbackFactory(CallbackFactory):
 
         else:
             logging.error(f"An error occurred while processing callback for {callback.data} in {self.__class__.__name__}")
+            await callback.message.answer(text="Что-то не то...", reply_markup=self.get_kb())
+        await callback.answer()
+
+
+class MultiplePaybackCallbackFactory(CallbackFactory):
+    prefix: str = 'mulback'
+    def __init__(self, context: Context):
+        super().__init__(context)
+        self.loan_ids: list[int] | None = None
+        self.settle_date: date | None = None
+        self.amount: int | None = None
+        self.new_reward: int | None = None
+        self.new_expected_settle_date: date | None = None
+        self.deserializers: list[Callable[[str], Any]] = [
+            self._deserialize_list,
+            lambda x: datetime.strptime(x, "%Y-%m-%d").date(),
+            lambda x: int(x),
+            lambda x: int(x),
+            lambda x: datetime.strptime(x, "%Y-%m-%d").date()
+        ]
+
+    @staticmethod
+    def _deserialize_list(s: str) -> list[int] | None:
+        if len(s) == 0:
+            return None
+        return [int(x) for x in s.split(',')]
+
+    def _parse_args(self, callback_data: str) -> None:
+        (self.loan_ids, self.settle_date, self.amount,
+         self.new_reward, self.new_expected_settle_date) = self._preproc(callback_data)
+
+    async def callback(self, callback: CallbackQuery) -> None:
+        self._parse_args(callback_data=callback.data)
+        self.context.input_mode_callback_data = None
+        if self.args_count == 1:
+            if len(self.loan_ids) == 0:
+                await callback.message.answer(text="Что-то пошло не так", reply_markup=self.get_kb())
+            elif self.loan_ids[-1] > -1:
+                st = set(self.loan_ids)
+                builder = InlineKeyboardBuilder()
+                buttons = [InlineKeyboardButton(
+                    text=f"{total} ({legend_name}) до "
+                         f"{datetime.strptime(expected_settle_date, '%Y-%m-%d').strftime('%d.%m.%Y')}",
+                    callback_data=f"{callback.data},{loan_id}"
+                )
+                    for loan_id, source_id, source_name, loan_date, expected_settle_date,
+                    amount, total, legend_id, legend_name, comment in
+                    itertools.filterfalse(lambda x: x[0] in st, self.context.db.get_unsettled_loans())]
+                for but in buttons:
+                    builder.row(but)
+                builder.row(InlineKeyboardButton(text="Перейти к следующим шагам", callback_data=f"{callback.data},-1"))
+                await callback.message.edit_text(text="Выберите следующий займ для погашения",
+                                                 reply_markup=builder.as_markup())
+            else:
+                builder = InlineKeyboardBuilder()
+                buttons = [
+                    InlineKeyboardButton(text=dt.strftime("%d.%m.%Y"),
+                                         callback_data=callback.data[:-2] + f"_{dt.strftime('%Y-%m-%d')}")
+                    for dt in [date.today() + timedelta(days=i) for i in range(-7, 7)]
+                ]
+                builder.row(*buttons[: 7])
+                builder.row(buttons[7])
+                builder.row(*buttons[8:])
+                await callback.message.edit_text(text="Выберите дату погашения задолженностей",
+                                                 reply_markup=builder.as_markup())
+        elif self.args_count == 2:
+            amount = self.context.db.get_loan_amount(*self.loan_ids)
+            builder = InlineKeyboardBuilder()
+            buttons = [
+                InlineKeyboardButton(text=str(i), callback_data=callback.data + f"_{i}")
+                for i in range(5000, 30001, 5000)
+            ]
+            builder.row(InlineKeyboardButton(text=f"Полностью: {amount}", callback_data=callback.data+f"_{amount}"))
+            for i in range(0, len(buttons), 2):
+                builder.row(*buttons[i: i + 2])
+            self.context.input_mode_callback_data = callback.data
+            await callback.message.edit_text(text="Выберите или введите сумму погашения", reply_markup=builder.as_markup())
+        elif self.args_count == 3:
+            target = self.context.db.get_loan_amount(*self.loan_ids)
+            if self.amount >= target:
+                self.amount = target
+                if self.context.db.settle_loans(self.loan_ids, self.settle_date):
+                    await callback.message.answer(text=f"Кажется, займы на сумму {self.amount} можно закрывать, уже готово",
+                                                  reply_markup=self.get_kb())
+                else:
+                    await callback.message.answer(text="Займ можно было бы закрыть, но что-то пошло не так",
+                                                  reply_markup=self.get_kb())
+            else:
+                builder = InlineKeyboardBuilder()
+                buttons = [
+                    InlineKeyboardButton(text=str(i), callback_data=callback.data + f"_{i}")
+                    for i in range(0, 35001, 5000)
+                ]
+                for i in range(0, len(buttons), 2):
+                    builder.row(*buttons[i: i + 2])
+                self.context.input_mode_callback_data = callback.data
+                await callback.message.edit_text(text="Выберите или введите сумму вознаграждения за продление в рублях",
+                                                 reply_markup=builder.as_markup())
+        elif self.args_count == 4:
+            builder = InlineKeyboardBuilder()
+            month = date.today().month
+            year = date.today().year
+            last_day_of_month = [-1, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            buttons = []
+            for _ in range(4):
+                dt = date(year=year, month=month, day=15)
+                buttons.append(
+                    InlineKeyboardButton(
+                        text=dt.strftime("%d.%m.%Y"),
+                        callback_data=callback.data + f"_{dt.strftime('%Y-%m-%d')}"
+                    )
+                )
+                dt = date(year=year, month=month, day=last_day_of_month[month])
+                buttons.append(
+                    InlineKeyboardButton(
+                        text=dt.strftime("%d.%m.%Y"),
+                        callback_data=callback.data + f"_{dt.strftime('%Y-%m-%d')}"
+                    )
+                )
+                year += month // 12
+                month = month % 12 + 1
+            for i in range(0, len(buttons), 2):
+                builder.row(*buttons[i: i + 2])
+            await callback.message.edit_text(text="Выберите дату ожидаемого погашения объединённого продления",
+                                             reply_markup=builder.as_markup())
+        elif self.args_count == 5:
+            if self.context.db.settle_loans(self.loan_ids, self.settle_date, self.amount,
+                                            self.new_reward, self.new_expected_settle_date):
+                await callback.message.answer(text=f"Продление займов с номерами {self.loan_ids} до "
+                                                   f"{self.new_expected_settle_date.strftime('%d.%m.%Y')} "
+                                                   f"успешно выполнено",
+                                              reply_markup=self.get_kb())
+            else:
+                await callback.message.answer(text="Ох ты ж ё...", reply_markup=self.get_kb())
+
+        else:
+            logging.error(
+                f"An error occurred while processing callback for {callback.data} in {self.__class__.__name__}")
             await callback.message.answer(text="Что-то не то...", reply_markup=self.get_kb())
         await callback.answer()
 
