@@ -186,19 +186,19 @@ class Db:
             return res[0][0]
         return ""
 
-    def get_loan_amount(self, loan_id: int) -> int:
+    def get_loan_amount_and_reward(self, loan_id: int) -> tuple[int, int]:
         query  = f'''
-            select amount + reward
+            select amount + reward, reward
             from loans
             where id = {loan_id}
         '''
         self.cur.execute(query)
         try:
-            return self.cur.fetchone()[0]
+            return self.cur.fetchone()
         except:
             logging.error("Something went wrong while getting loan amount by id")
             logging.error(format_exc())
-            return 0
+            return 0, 0
 
     def get_unsettled_loans(self) -> list[tuple[int, int, str, str, str, int, int, int, str, str]]:
         query = f'''

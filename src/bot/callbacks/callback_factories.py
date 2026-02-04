@@ -219,7 +219,7 @@ class PaybackCallbackFactory(CallbackFactory):
                                              reply_markup=builder.as_markup())
         elif self.args_count == 2:
             self.context.input_mode_callback_data = None
-            amount = self.context.db.get_loan_amount(self.loan_id)
+            amount, _ = self.context.db.get_loan_amount_and_reward(self.loan_id)
             builder = InlineKeyboardBuilder()
             buttons = [
                 InlineKeyboardButton(text=str(i), callback_data=callback.data + f"_{i}")
@@ -232,9 +232,10 @@ class PaybackCallbackFactory(CallbackFactory):
             await callback.message.answer(text="Выберите или введите сумму погашения", reply_markup=builder.as_markup())
         elif self.args_count == 3:
             self.context.input_mode_callback_data = None
-            if self.amount >= self.context.db.get_loan_amount(self.loan_id):
+            amount, reward = self.context.db.get_loan_amount_and_reward(self.loan_id)
+            if self.amount >= amount:
                 if self.context.db.settle_loan(self.loan_id, self.settle_date):
-                    await callback.message.answer(text="Кажется, займ можно закрывать, уже готово",
+                    await callback.message.answer(text=f"Кажется, займ можно закрывать, уже готово. Чистая прибыль: {reward}",
                                                   reply_markup=self.get_kb())
                 else:
                     await callback.message.answer(text="Займ можно было бы закрыть, но что-то пошло не так",
