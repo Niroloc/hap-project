@@ -76,7 +76,13 @@ class Reporter:
         plt.ioff()
         result_files: list[str] = []
         plt.figure(figsize=(12, 12))
-        plt.title(f"Проект Хапэрыч, динамика позиции")
+        min_all_source_position = all_source_positions["position"].min()
+        last_all_source_position = all_source_positions["position"].iloc[-1]
+        last_all_source_duty = all_source_positions["duty"].iloc[-1]
+        all_source_roi = last_all_source_position / min_all_source_position
+        plt.title(f"Проект Хапэрыч, динамика позиции.\n"
+                  f"Рентабельность за период: {all_source_roi:.2%}.\n"
+                  f"Позиция: {last_all_source_position}. Долг: {last_all_source_duty}")
         result_files.append(
             self._plot_view(all_source_positions, self._create_filename(None, year, month))
             )
