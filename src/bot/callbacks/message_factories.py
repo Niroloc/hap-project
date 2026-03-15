@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from traceback import format_exc
 from datetime import datetime, date
+from collections import defaultdict
 
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, Message, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -150,6 +151,21 @@ class ScheduleMessageFactory(MessageFactory):
     alias: str = 'schedule'
     async def callback(self, message: Message) -> None:
         text = ""
+        date_to_total = defaultdict(int)
+        date_to_list = defaultdict(list[str])
+        for i, (loan_id, source_id, source_name, loan_date, expected_settle_date,
+            amount, total, legend_id, legend_name, comment) in enumerate(self.context.db.get_unsettled_loans()):
+            expected_settle_date = datetime.strptime(expected_settle_date, '%Y-%m-%d')
+            date_to_total[expected_settle_date] += total
+            l = len(date_to_list[expected_settle_date])
+            date_to_list[expected_settle_date].append(f"{l + 1}. {total} рублей "
+                                                      f"от {datetime.strptime(loan_date, '%Y-%m-%d').strftime('%d.%m')} ({legend_name})")
+        for dt, total in date_to_total.items():
+            loans = "\n".join(date_to_list[dt])
+            text += f"{datetime.strptime(dt, '%Y-%m-%d').strftime('%d.%m')}\n{loans}\n\n"
+        await message.answer(text=text)
+
+        text = ""
         prev_date: date | None = None
         all_total = 0
         day_total = 0
@@ -161,8 +177,8 @@ class ScheduleMessageFactory(MessageFactory):
                     text += f"\n{prev_date.strftime('%d.%m')}: {day_total} рублей\n\n"
                 prev_date = expected_settle_date
                 day_total = 0
-            text += (f"{i + 1}. {total} по займу от {datetime.strptime(loan_date, '%Y-%m-%d').strftime('%d.%m')} "
-                     f"({legend_name}) -- '{comment if comment is not None else str()}' ({source_name})\n")
+            text += (f"{i + 1}. {amount} -> {total} по займу от {datetime.strptime(loan_date, '%Y-%m-%d').strftime('%d.%m')} "
+                     f"({legend_name}) - '{comment if comment is not None else str()}' ({source_name})\n")
             all_total += total
             day_total += total
         if prev_date is not None:
