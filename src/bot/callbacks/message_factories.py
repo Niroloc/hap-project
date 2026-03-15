@@ -150,19 +150,23 @@ class LoanMessageFactory(MessageFactory):
 class ScheduleMessageFactory(MessageFactory):
     alias: str = 'schedule'
     async def callback(self, message: Message) -> None:
-        text = ""
         date_to_total = defaultdict(int)
         date_to_list = defaultdict(list[str])
+        all_total = 0
         for i, (loan_id, source_id, source_name, loan_date, expected_settle_date,
             amount, total, legend_id, legend_name, comment) in enumerate(self.context.db.get_unsettled_loans()):
             expected_settle_date = datetime.strptime(expected_settle_date, '%Y-%m-%d')
             date_to_total[expected_settle_date] += total
+            all_total += total
             l = len(date_to_list[expected_settle_date])
-            date_to_list[expected_settle_date].append(f"{l + 1}. {total} рублей "
+            date_to_list[expected_settle_date].append(f"{l + 1}. {total} "
                                                       f"от {datetime.strptime(loan_date, '%Y-%m-%d').strftime('%d.%m')} ({legend_name})")
+            
+        
+        text = f"Всего к возврату: {all_total}"
         for dt, total in date_to_total.items():
             loans = "\n".join(date_to_list[dt])
-            text += f"{dt.strftime('%d.%m')}: {total} рублей:\n{loans}\n\n"
+            text += f"{dt.strftime('%d.%m')}: {total}:\n{loans}\n\n"
         await message.answer(text=text)
 
         text = ""
