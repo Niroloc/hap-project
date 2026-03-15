@@ -163,7 +163,7 @@ class ScheduleMessageFactory(MessageFactory):
                                                       f"от {datetime.strptime(loan_date, '%Y-%m-%d').strftime('%d.%m')} ({legend_name})")
             
         
-        text = f"Всего к возврату: {all_total}"
+        text = f"Всего к возврату: {all_total}\n"
         for dt, total in date_to_total.items():
             loans = "\n".join(date_to_list[dt])
             text += f"{dt.strftime('%d.%m')}: {total}:\n{loans}\n\n"
