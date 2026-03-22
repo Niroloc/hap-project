@@ -172,6 +172,7 @@ class ScheduleMessageFactory(MessageFactory):
         text = ""
         prev_date: date | None = None
         all_total = 0
+        all_amounts = 0
         day_total = 0
         for i, (loan_id, source_id, source_name, loan_date, expected_settle_date,
             amount, total, legend_id, legend_name, comment) in enumerate(self.context.db.get_unsettled_loans()):
@@ -184,10 +185,11 @@ class ScheduleMessageFactory(MessageFactory):
             text += (f"{i + 1}. {amount} -> {total} по займу от {datetime.strptime(loan_date, '%Y-%m-%d').strftime('%d.%m')} "
                      f"({legend_name}) - '{comment if comment is not None else str()}' ({source_name})\n")
             all_total += total
+            all_amounts += amount
             day_total += total
         if prev_date is not None:
             text += f"\n{prev_date.strftime('%d.%m')}: {day_total} рублей\n\n"
-        text += f"Итого: {all_total} рублей"
+        text += f"Итого: {all_amounts} -> {all_total} рублей ({all_total - all_amounts} чистыми)"
         await message.answer(text=text, reply_markup=self.get_kb())
 
 
