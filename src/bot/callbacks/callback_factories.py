@@ -281,11 +281,12 @@ class PaybackCallbackFactory(CallbackFactory):
                                           reply_markup=builder.as_markup())
         elif self.args_count == 5:
             self.context.input_mode_callback_data = None
+            _, reward = self.context.db.get_loan_amount_and_reward(self.loan_id)
             if self.context.db.settle_loan(self.loan_id, self.settle_date, self.amount,
                                         self.new_reward, self.new_expected_settle_date):
                 await callback.message.answer(text=f"Продление займа №{self.loan_id} до "
                                                    f"{self.new_expected_settle_date.strftime('%d.%m.%Y')} "
-                                                   f"успешно выполнено",
+                                                   f"успешно выполнено (прибыль для отчёта: {reward} рублей)",
                                               reply_markup=self.get_kb())
             else:
                 await callback.message.answer(text="Ох ты ж ё...", reply_markup=self.get_kb())
