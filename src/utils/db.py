@@ -1,6 +1,7 @@
 import logging
 import os
 import sqlite3
+from datetime import datetime
 from datetime import date
 from traceback import format_exc
 
@@ -83,7 +84,7 @@ class Db:
 
     def settle_loan(self, loan_id: int, settle_date: date, amount: int = None, new_reward: int = None, new_expected_settle_date: date = None) -> bool:
         query = f'''
-            select source_id, legend_source_id, amount + reward, comment
+            select source_id, loan_date, legend_source_id, amount + reward, comment
             from loans
             where id = {loan_id}
         '''
@@ -92,7 +93,8 @@ class Db:
         except:
             logging.error(format_exc())
             return False
-        source_id, legend_id, new_amount, comment = self.cur.fetchone()
+        source_id, loan_date, legend_id, new_amount, comment = self.cur.fetchone()
+        loan_date = datetime.strptime(loan_date, "%Y-%m-%d").date()
         query = f'''
             update loans
             set settle_date = '{settle_date.strftime("%Y-%m-%d")}'
@@ -104,7 +106,7 @@ class Db:
             logging.error(format_exc())
             return False
         if amount is not None and new_reward is not None and new_expected_settle_date is not None:
-            if not self.create_loan(source_id, settle_date, new_amount - amount,
+            if not self.create_loan(source_id, loan_date, new_amount - amount,
                                 new_reward, new_expected_settle_date, legend_id, loan_id):
                 return False
             if not self.update_loan_comment(loan_id, comment):
